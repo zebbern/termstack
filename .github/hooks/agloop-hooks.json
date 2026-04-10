@@ -1,0 +1,46 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node .github/hooks/session-start.mjs",
+        "timeout": 10
+      }
+    ],
+    "PreCompact": [
+      {
+        "type": "command",
+        "command": "node .github/hooks/pre-compact.mjs",
+        "timeout": 10
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node .github/hooks/stop-guard.mjs",
+        "timeout": 5
+      }
+    ],
+    "SubagentStart": [
+      {
+        "type": "command",
+        "command": "node .github/hooks/subagent-tracker.mjs start",
+        "timeout": 5
+      }
+    ],
+    "SubagentStop": [
+      {
+        "type": "command",
+        "command": "node .github/hooks/subagent-tracker.mjs stop",
+        "timeout": 5
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "node .github/hooks/audit-logger.mjs",
+        "timeout": 5
+      }
+    ]
+  }
+}
