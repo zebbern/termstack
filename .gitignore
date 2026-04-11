@@ -74,3 +74,14 @@ temp/
 # Electron build artifacts (too large for GitHub)
 dist/
 release/
+
+# Local agent / browser validation artifacts
+.agloop/
+.playwright-mcp/
+test-results/
+browser-smoke.spec.js
+test-result-screenshot.png
+chat-home-*.png
+chat-page-*.png
+dark-theme-*.png
+homepage-*.png

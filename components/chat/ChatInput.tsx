@@ -398,6 +398,60 @@ export default function ChatInput({
     }
   };
 
+  const uploadTitle =
+    preferredCli === 'qwen'
+      ? 'Qwen Coder does not support image input. Please use Claude CLI.'
+      : preferredCli === 'cursor'
+      ? 'Cursor CLI does not support image input. Please use Claude CLI.'
+      : 'GLM CLI supports text only. Please use Claude CLI.';
+
+  const uploadControl = projectId ? (
+    supportsImageUpload ? (
+      <button
+        type="button"
+        className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        title="Upload images"
+        aria-label="Upload images"
+        onClick={() => {
+          console.log('📸 Upload button clicked:', {
+            projectId,
+            supportsImageUpload,
+            isUploading,
+            disabled
+          });
+          if (fileInputRef.current) {
+            console.log('📸 Triggering file input click');
+            fileInputRef.current.click();
+          } else {
+            console.error('📸 fileInputRef is null');
+          }
+        }}
+        disabled={isUploading || disabled}
+      >
+        <ImageIcon className="h-4 w-4" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleImageUpload}
+          disabled={isUploading || disabled}
+          className="hidden"
+        />
+      </button>
+    ) : (
+      <button
+        type="button"
+        className="flex items-center justify-center w-8 h-8 text-gray-300 cursor-not-allowed opacity-50 rounded-full"
+        title={uploadTitle}
+        aria-label="Image uploads unavailable"
+        disabled
+      >
+        <ImageIcon className="h-4 w-4" />
+      </button>
+    )
+  ) : null;
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -429,56 +483,7 @@ export default function ChatInput({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            {projectId && (
-              (!supportsImageUpload) ? (
-                <div
-                  className="flex items-center justify-center w-8 h-8 text-gray-300 cursor-not-allowed opacity-50 rounded-full"
-                  title={
-                    preferredCli === 'qwen'
-                      ? 'Qwen Coder does not support image input. Please use Claude CLI.'
-                      : preferredCli === 'cursor'
-                      ? 'Cursor CLI does not support image input. Please use Claude CLI.'
-                      : 'GLM CLI supports text only. Please use Claude CLI.'
-                  }
-                >
-                  <ImageIcon className="h-4 w-4" />
-                </div>
-              ) : (
-                <div
-                  className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Upload images"
-                  onClick={() => {
-                    console.log('📸 Upload button clicked:', {
-                      projectId,
-                      supportsImageUpload,
-                      isUploading,
-                      disabled
-                    });
-                    if (fileInputRef.current) {
-                      console.log('📸 Triggering file input click');
-                      fileInputRef.current.click();
-                    } else {
-                      console.error('📸 fileInputRef is null');
-                    }
-                  }}
-                >
-                  <ImageIcon className="h-4 w-4" />
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImageUpload}
-                    disabled={isUploading || disabled}
-                    className="hidden"
-                  />
-                </div>
-              )
-            )}
-          </div>
-
+        <div className="flex flex-wrap items-start gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex flex-col text-[11px] text-gray-500 ">
               <span>Assistant</span>
@@ -594,14 +599,17 @@ export default function ChatInput({
             </button>
           </div>
 
-          <button
-            id="chatinput-send-message-button"
-            type="submit"
-            className="flex size-8 items-center justify-center rounded-full bg-gray-900 text-white transition-all duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 hover:scale-110 disabled:hover:scale-100"
-            disabled={disabled || isSubmitting || isUploading || (!message.trim() && uploadedImages.length === 0) || isRunning}
-          >
-            <SendHorizontal className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {uploadControl}
+            <button
+              id="chatinput-send-message-button"
+              type="submit"
+              className="flex size-8 items-center justify-center rounded-full bg-gray-900 text-white transition-all duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 hover:scale-110 disabled:hover:scale-100"
+              disabled={disabled || isSubmitting || isUploading || (!message.trim() && uploadedImages.length === 0) || isRunning}
+            >
+              <SendHorizontal className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
