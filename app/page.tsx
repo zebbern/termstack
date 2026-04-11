@@ -4,18 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowUp,
-  Bot,
   FolderKanban,
   Home,
   Layers3,
   Loader2,
+  Menu,
   MessageSquareText,
   Plus,
   Search,
   Settings,
-  Sparkles,
   Trash2,
   Workflow,
+  X,
 } from 'lucide-react';
 import { getDefaultModelForCli, getModelDefinitionsForCli, normalizeModelId } from '@/lib/constants/cliModels';
 import { fetchCliStatusSnapshot } from '@/hooks/useCLI';
@@ -129,6 +129,7 @@ export default function HomePage() {
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const loadProjects = useCallback(async () => {
     setIsLoadingProjects(true);
@@ -206,6 +207,21 @@ export default function HomePage() {
     void Promise.all([loadProjects(), loadConfig()]);
   }, [loadProjects, loadConfig]);
 
+  useEffect(() => {
+    if (!isSidebarOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSidebarOpen]);
+
   const filteredProjects = useMemo(() => {
     const query = projectSearch.trim().toLowerCase();
     if (!query) {
@@ -231,7 +247,6 @@ export default function HomePage() {
   }, [globalSettings, modelOptions, selectedCli, selectedModel]);
 
   const latestProjects = useMemo(() => filteredProjects.slice(0, 12), [filteredProjects]);
-  const featuredProjects = useMemo(() => filteredProjects.slice(0, 4), [filteredProjects]);
 
   const resetComposer = useCallback(() => {
     setView('home');
@@ -253,6 +268,7 @@ export default function HomePage() {
   }, [cliOptions, globalSettings]);
 
   const handleOpenProject = useCallback((project: Project) => {
+    setIsSidebarOpen(false);
     router.push(`/${project.id}/chat`);
   }, [router]);
 
@@ -327,147 +343,167 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
-      <div className="flex min-h-screen flex-col lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
-        <aside className="border-b border-[var(--app-border)] bg-[#060708] lg:border-b-0 lg:border-r">
-          <div className="flex h-full flex-col px-4 py-4">
-            <div className="mb-4 flex items-center justify-between gap-3 px-2">
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text)]">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <span className="text-sm font-medium tracking-tight text-[var(--app-text)]">termstack</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSettingsOpen(true)}
-                className="rounded-md p-2 text-[var(--app-muted)] transition hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--app-text)]"
-              >
-                <Settings className="h-4 w-4" />
-              </button>
-            </div>
+      <div className="relative min-h-screen">
+        <button
+          type="button"
+          onClick={() => setIsSidebarOpen(true)}
+          className={`fixed left-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--app-border)] bg-[rgba(11,14,18,0.92)] text-[var(--app-text)] shadow-[0_16px_40px_rgba(0,0,0,0.32)] backdrop-blur transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface)] ${
+            isSidebarOpen ? 'pointer-events-none opacity-0' : 'opacity-100'
+          }`}
+          aria-label="Open sidebar"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
 
+        <button
+          type="button"
+          onClick={() => setIsSidebarOpen(false)}
+          className={`fixed inset-0 z-40 bg-[rgba(0,0,0,0.58)] transition ${
+            isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+          }`}
+          aria-label="Close sidebar overlay"
+        />
+
+        <aside
+          className={`fixed inset-y-0 left-0 z-50 flex w-[248px] max-w-[calc(100vw-1rem)] flex-col border-r border-[var(--app-border)] bg-[#060708] px-4 py-4 shadow-[0_24px_80px_rgba(0,0,0,0.52)] transition-transform duration-200 ease-out ${
+            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="mb-4 flex items-center justify-end gap-2 px-1">
             <button
               type="button"
-              onClick={resetComposer}
-              className="mb-3 inline-flex items-center justify-between rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2.5 text-sm font-medium text-[var(--app-text)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-2)]"
+              onClick={() => setIsSettingsOpen(true)}
+              className="rounded-md p-2 text-[var(--app-muted)] transition hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--app-text)]"
+              aria-label="Open settings"
             >
-              <span>New Chat</span>
-              <Plus className="h-4 w-4 text-[var(--app-muted)]" />
+              <Settings className="h-4 w-4" />
             </button>
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(false)}
+              className="rounded-md p-2 text-[var(--app-muted)] transition hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--app-text)]"
+              aria-label="Close sidebar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
 
-            <label className="mb-4 flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-muted)]">
-              <Search className="h-4 w-4" />
-              <input
-                value={projectSearch}
-                onChange={(event) => setProjectSearch(event.target.value)}
-                placeholder="Search chats"
-                className="w-full border-0 bg-transparent text-[var(--app-text)] outline-none placeholder:text-[var(--app-muted)]"
-              />
-            </label>
+          <button
+            type="button"
+            onClick={() => {
+              resetComposer();
+              setIsSidebarOpen(false);
+            }}
+            className="mb-3 inline-flex items-center justify-between rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2.5 text-sm font-medium text-[var(--app-text)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-2)]"
+          >
+            <span>New Chat</span>
+            <Plus className="h-4 w-4 text-[var(--app-muted)]" />
+          </button>
 
-            <nav className="space-y-1">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const active = view === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setView(item.id)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
-                      active
-                        ? 'bg-[rgba(255,255,255,0.08)] text-[var(--app-text)]'
-                        : 'text-[var(--app-muted)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--app-text)]'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
+          <label className="mb-4 flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-muted)]">
+            <Search className="h-4 w-4" />
+            <input
+              value={projectSearch}
+              onChange={(event) => setProjectSearch(event.target.value)}
+              placeholder="Search chats"
+              className="w-full border-0 bg-transparent text-[var(--app-text)] outline-none placeholder:text-[var(--app-muted)]"
+            />
+          </label>
 
-              {SECONDARY_ITEMS.map((item) => {
-                const Icon = item.icon;
-                return (
+          <nav className="space-y-1">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const active = view === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setView(item.id);
+                    setIsSidebarOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
+                    active
+                      ? 'bg-[rgba(255,255,255,0.08)] text-[var(--app-text)]'
+                      : 'text-[var(--app-muted)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--app-text)]'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+
+            {SECONDARY_ITEMS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.label}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--app-muted)]"
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </div>
+              );
+            })}
+          </nav>
+
+          <div className="mt-8 flex-1 overflow-y-auto">
+            <div className="mb-2 flex items-center justify-between px-3">
+              <div className="text-xs font-medium text-[var(--app-muted)]">Recent chats</div>
+              <button
+                type="button"
+                onClick={() => void loadProjects()}
+                className="rounded-md p-1.5 text-[var(--app-muted)] transition hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--app-text)]"
+                aria-label="Refresh chats"
+              >
+                <Loader2 className={`h-4 w-4 ${isLoadingProjects ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+            <div className="space-y-1">
+              {isLoadingProjects ? (
+                <div className="px-3 py-6 text-sm text-[var(--app-muted)]">Loading chats...</div>
+              ) : latestProjects.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[var(--app-border)] px-3 py-6 text-center text-sm text-[var(--app-muted)]">
+                  No chats yet.
+                </div>
+              ) : (
+                latestProjects.map((project) => (
                   <div
-                    key={item.label}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--app-muted)]"
+                    key={project.id}
+                    className="group flex items-center gap-2 rounded-lg border border-transparent px-2 py-2 transition hover:border-[var(--app-border)] hover:bg-[var(--app-surface)]"
                   >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </div>
-                );
-              })}
-            </nav>
-
-            <div className="mt-8 flex-1 overflow-y-auto">
-              <div className="mb-2 px-3 text-xs font-medium text-[var(--app-muted)]">Recent chats</div>
-              <div className="space-y-1">
-                {isLoadingProjects ? (
-                  <div className="px-3 py-6 text-sm text-[var(--app-muted)]">Loading chats...</div>
-                ) : latestProjects.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-[var(--app-border)] px-3 py-6 text-center text-sm text-[var(--app-muted)]">
-                    No chats yet.
-                  </div>
-                ) : (
-                  latestProjects.map((project) => (
-                    <div
-                      key={project.id}
-                      className="group flex items-center gap-2 rounded-lg border border-transparent px-2 py-2 transition hover:border-[var(--app-border)] hover:bg-[var(--app-surface)]"
+                    <button
+                      type="button"
+                      onClick={() => handleOpenProject(project)}
+                      className="min-w-0 flex-1 text-left"
                     >
-                      <button
-                        type="button"
-                        onClick={() => handleOpenProject(project)}
-                        className="min-w-0 flex-1 text-left"
-                      >
-                        <div className="truncate text-sm text-[var(--app-text)]">{project.name}</div>
-                        <div className="truncate text-xs text-[var(--app-muted)]">
-                          {formatRelativeTime(project.lastActiveAt)} · {formatStatus(project.status)}
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(project)}
-                        className="rounded-md p-1.5 text-[var(--app-muted)] opacity-0 transition hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--app-danger)] group-hover:opacity-100"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
+                      <div className="truncate text-sm text-[var(--app-text)]">{project.name}</div>
+                      <div className="truncate text-xs text-[var(--app-muted)]">
+                        {formatRelativeTime(project.lastActiveAt)} · {formatStatus(project.status)}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(project)}
+                      className="rounded-md p-1.5 text-[var(--app-muted)] opacity-0 transition hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--app-danger)] group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </aside>
 
-        <section className="flex min-h-[calc(100vh-1px)] flex-col bg-[#0a0c0f]">
-          <div className="flex items-center justify-between border-b border-[var(--app-border)] px-4 py-3 sm:px-6">
-            <div className="flex items-center gap-3 text-sm text-[var(--app-muted)]">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text)]">
-                <Bot className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="text-[var(--app-text)]">Builder workspace</div>
-                <div className="text-xs text-[var(--app-muted)]">Create directly from a prompt</div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => void loadProjects()}
-              className="inline-flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-muted)] transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
-            >
-              <Loader2 className={`h-4 w-4 ${isLoadingProjects ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
-
-          <div className="flex flex-1 flex-col">
+        <section className="min-h-screen bg-[#0a0c0f]">
+          <div className="flex min-h-screen flex-col px-4 py-20 sm:px-6 lg:px-10 lg:py-24">
             {view === 'home' ? (
-              <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-10">
-                <div className="w-full max-w-3xl">
+              <div className="flex flex-1 items-center justify-center">
+                <div className="w-full max-w-[42rem]">
                   <div className="mx-auto max-w-2xl text-center">
-                    <h1 className="text-4xl font-semibold tracking-tight text-[var(--app-text)] sm:text-5xl">
+                    <h1 className="text-3xl font-semibold tracking-tight text-[var(--app-text)] sm:text-4xl lg:text-[3.25rem]">
                       What do you want to create?
                     </h1>
                     <p className="mt-3 text-sm text-[var(--app-muted)] sm:text-base">
@@ -475,7 +511,7 @@ export default function HomePage() {
                     </p>
                   </div>
 
-                  <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+                  <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
                     <div className="border-b border-[var(--app-border)] px-4 py-3">
                       <textarea
                         ref={textareaRef}
@@ -487,9 +523,9 @@ export default function HomePage() {
                             void handleCreateProject();
                           }
                         }}
-                        rows={4}
+                        rows={3}
                         placeholder="Ask termstack to build a polished landing page, dashboard, app, or redesign..."
-                        className="w-full resize-none border-0 bg-transparent text-base leading-7 text-[var(--app-text)] outline-none placeholder:text-[var(--app-muted)]"
+                        className="w-full resize-none border-0 bg-transparent text-base leading-6 text-[var(--app-text)] outline-none placeholder:text-[var(--app-muted)]"
                       />
                     </div>
 
@@ -543,53 +579,14 @@ export default function HomePage() {
                   </div>
 
                   {submitError ? (
-                    <div className="mx-auto mt-4 max-w-2xl rounded-lg border border-[rgba(255,125,115,0.25)] bg-[rgba(255,125,115,0.08)] px-4 py-3 text-sm text-[var(--app-danger)]">
+                    <div className="mx-auto mt-4 max-w-xl rounded-lg border border-[rgba(255,125,115,0.25)] bg-[rgba(255,125,115,0.08)] px-4 py-3 text-sm text-[var(--app-danger)]">
                       {submitError}
                     </div>
                   ) : null}
-
-                  <div className="mx-auto mt-8 max-w-2xl">
-                    <div className="mb-3 flex items-center justify-between text-sm text-[var(--app-muted)]">
-                      <span>Recent chats</span>
-                      <button
-                        type="button"
-                        onClick={() => setView('projects')}
-                        className="text-[var(--app-text)] transition hover:text-white"
-                      >
-                        View all
-                      </button>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {featuredProjects.length === 0 ? (
-                        <div className="col-span-full rounded-xl border border-dashed border-[var(--app-border)] px-4 py-6 text-sm text-[var(--app-muted)]">
-                          No chats yet. Start with a prompt above.
-                        </div>
-                      ) : (
-                        featuredProjects.map((project) => (
-                          <button
-                            key={project.id}
-                            type="button"
-                            onClick={() => handleOpenProject(project)}
-                            className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-4 text-left transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-2)]"
-                          >
-                            <div className="truncate text-sm font-medium text-[var(--app-text)]">{project.name}</div>
-                            <div className="mt-1 truncate text-xs text-[var(--app-muted)]">
-                              {project.preferredCli
-                                ? CLI_REGISTRY.find((option) => option.id === project.preferredCli)?.label ?? project.preferredCli
-                                : 'Builder'}
-                            </div>
-                            <div className="mt-3 text-xs text-[var(--app-muted)]">
-                              {formatRelativeTime(project.lastActiveAt)}
-                            </div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
             ) : (
-              <div className="px-4 py-6 sm:px-6 lg:px-8">
+              <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col">
                 <div className="mb-4">
                   <h2 className="text-2xl font-semibold text-[var(--app-text)]">Projects</h2>
                   <p className="mt-1 text-sm text-[var(--app-muted)]">

@@ -46,6 +46,7 @@ interface ChatInputProps {
   onCliChange?: (cliId: string) => void;
   cliChangeDisabled?: boolean;
   isRunning?: boolean;
+  theme?: 'dark' | 'light';
 }
 
 export default function ChatInput({
@@ -65,7 +66,8 @@ export default function ChatInput({
   cliOptions = [],
   onCliChange,
   cliChangeDisabled = false,
-  isRunning = false
+  isRunning = false,
+  theme = 'dark',
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -76,6 +78,7 @@ export default function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submissionLockRef = useRef(false);
   const supportsImageUpload = preferredCli !== 'cursor' && preferredCli !== 'qwen' && preferredCli !== 'glm';
+  const isDarkTheme = theme === 'dark';
 
   // Log CLI compatibility details
   console.log('🔧 CLI Compatibility Check:', {
@@ -404,8 +407,12 @@ export default function ChatInput({
       onDrop={handleDrop}
       className={`bg-white border rounded-2xl shadow-sm overflow-hidden transition-all duration-200 relative ${
       isDragOver
-        ? 'border-blue-400 bg-blue-50'
-        : 'border-gray-200'
+        ? isDarkTheme
+          ? 'border-[rgba(74,89,112,0.7)] bg-blue-50'
+          : 'border-blue-400 bg-blue-50'
+        : isDarkTheme
+          ? 'border-[rgba(53,64,81,0.92)]'
+          : 'border-gray-200'
     }`}
     >
       <div className="p-4 space-y-3">
@@ -482,7 +489,11 @@ export default function ChatInput({
                   requestAnimationFrame(() => textareaRef.current?.focus());
                 }}
                 disabled={cliChangeDisabled || !onCliChange}
-                className="mt-1 w-32 rounded-md border border-gray-300 bg-white text-gray-700 text-xs py-1 px-2 focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:opacity-60"
+                className={`mt-1 w-32 rounded-md border bg-white text-gray-700 text-xs py-1 px-2 focus:outline-none focus:ring-2 disabled:opacity-60 ${
+                  isDarkTheme
+                    ? 'border-[rgba(53,64,81,0.92)] focus:ring-[rgba(74,89,112,0.35)]'
+                    : 'border-gray-300 focus:ring-gray-300'
+                }`}
               >
                 {cliOptions.length === 0 && <option value={preferredCli}>{preferredCli}</option>}
                 {cliOptions.map(option => (
@@ -504,7 +515,11 @@ export default function ChatInput({
                   }
                 }}
                 disabled={modelChangeDisabled || !onModelChange || modelOptionsForCli.length === 0}
-                className="mt-1 w-40 rounded-md border border-gray-300 bg-white text-gray-700 text-xs py-1 px-2 focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:opacity-60"
+                className={`mt-1 w-40 rounded-md border bg-white text-gray-700 text-xs py-1 px-2 focus:outline-none focus:ring-2 disabled:opacity-60 ${
+                  isDarkTheme
+                    ? 'border-[rgba(53,64,81,0.92)] focus:ring-[rgba(74,89,112,0.35)]'
+                    : 'border-gray-300 focus:ring-gray-300'
+                }`}
               >
                 {modelOptionsForCli.length === 0 && <option value="">No models available</option>}
                 {modelOptionsForCli.length > 0 && selectedModelValue === '' && (
@@ -526,7 +541,9 @@ export default function ChatInput({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full ring-offset-background placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 resize-none text-[16px] leading-snug md:text-base bg-transparent focus:bg-transparent rounded-md p-2 text-gray-900 border border-gray-200 "
+            className={`w-full ring-offset-background placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 resize-none text-[16px] leading-snug md:text-base bg-transparent focus:bg-transparent rounded-md p-2 text-gray-900 border ${
+              isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'
+            }`}
             id="chatinput"
             placeholder={placeholder}
             disabled={disabled || isUploading || isSubmitting}
@@ -594,7 +611,7 @@ export default function ChatInput({
           <div className="flex flex-wrap gap-2">
             {uploadedImages.map((image, index) => (
               <div key={image.id} className="relative group">
-                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden border border-gray-300">
+                <div className={`w-16 h-16 bg-gray-100 rounded-lg overflow-hidden border ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-300'}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={image.url}

@@ -2009,8 +2009,8 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
                 pollIntervalRef.current = null;
               }
 
-              // Trigger reload flag instead of direct call
-          setHasLoadedOnce(false);
+              // Keep the existing history visible and request a refresh instead.
+              setNeedsHistoryRefresh(true);
             }
           }
         } catch (error) {
@@ -2737,12 +2737,24 @@ const ToolResultMessage = ({
     }
   }, [onAddUserMessage]);
 
+  const visibleLogs = logs.filter(log => {
+    const hiddenLogTypes = ['tool_result', 'tool_start', 'system'];
+    return !hiddenLogTypes.includes(log.type);
+  });
+
+  const showInitialLoadingState = isLoading && !hasLoadedOnce && !hasError;
+  const showEmptyState =
+    hasLoadedOnce &&
+    !hasError &&
+    messages.length === 0 &&
+    visibleLogs.length === 0;
+
   return (
     <div className="flex flex-col h-full bg-white ">
 
       {/* Error Display */}
       {hasError && (
-        <div className="mx-8 mt-3 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
+        <div className="mx-8 mt-3 p-4 bg-red-50 border border-red-200 rounded-lg">
           <div className="flex items-start justify-between">
             <div className="flex items-start">
               <div className="flex-shrink-0">
@@ -2751,12 +2763,12 @@ const ToolResultMessage = ({
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                <h3 className="text-sm font-medium text-red-800">
                   Connection error
                 </h3>
-                <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                <div className="mt-2 text-sm text-red-700">
                   <p>{errorMessage}</p>
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  <p className="mt-1 text-xs text-red-600">
                     Retrying automatically in a few seconds...
                   </p>
                 </div>
@@ -2778,7 +2790,7 @@ const ToolResultMessage = ({
 
       {/* Display messages and logs together */}
       <div className="flex-1 overflow-y-auto px-8 py-3 space-y-2 custom-scrollbar ">
-        {isLoading && !hasLoadedOnce && !hasError && (
+        {showInitialLoadingState && (
           <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
             <div className="flex flex-col items-center">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mb-2 mx-auto"></div>
@@ -2787,7 +2799,7 @@ const ToolResultMessage = ({
           </div>
         )}
         
-        {!isLoading && messages.length === 0 && logs.length === 0 && (
+        {showEmptyState && (
           <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
             <div className="text-center">
               <div className="text-2xl mb-2">💬</div>
@@ -3016,13 +3028,9 @@ const ToolResultMessage = ({
             </div>
           );
         })}
-        
+
         {/* Render filtered agent logs as plain text */}
-        {logs.filter(log => {
-          // Hide internal tool results and system logs
-          const hideTypes = ['tool_result', 'tool_start', 'system'];
-          return !hideTypes.includes(log.type);
-        }).map((log, index) => (
+        {visibleLogs.map((log, index) => (
           <div
             key={log.id ?? `log-${index}`}
             className="mb-4 w-full cursor-pointer"

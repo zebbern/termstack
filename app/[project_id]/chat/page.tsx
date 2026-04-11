@@ -5,6 +5,7 @@ import { MotionDiv, MotionH3, MotionP, MotionButton } from '@/lib/motion';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { FaCode, FaDesktop, FaMobileAlt, FaPlay, FaStop, FaSync, FaCog, FaRocket, FaFolder, FaFolderOpen, FaFile, FaFileCode, FaCss3Alt, FaHtml5, FaJs, FaReact, FaPython, FaDocker, FaGitAlt, FaMarkdown, FaDatabase, FaPhp, FaJava, FaRust, FaVuejs, FaLock, FaHome, FaChevronUp, FaChevronRight, FaChevronDown, FaArrowLeft, FaArrowRight, FaRedo } from 'react-icons/fa';
+import { Moon, Sun } from 'lucide-react';
 import { SiTypescript, SiGo, SiRuby, SiSvelte, SiJson, SiYaml, SiCplusplus } from 'react-icons/si';
 import { VscJson } from 'react-icons/vsc';
 import ChatLog from '@/components/chat/ChatLog';
@@ -30,6 +31,7 @@ import {
 // No longer loading ProjectSettings (managed by global settings on main page)
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
+const CHAT_THEME_STORAGE_KEY = 'termstack-chat-theme';
 
 const assistantBrandColors = ACTIVE_CLI_BRAND_COLORS;
 
@@ -56,6 +58,7 @@ const hexToFilter = (hex: string): string => {
 
 type Entry = { path: string; type: 'file'|'dir'; size?: number };
 type ProjectStatus = 'initializing' | 'active' | 'failed';
+type ChatTheme = 'dark' | 'light';
 
 type CliStatusSnapshot = {
   available?: boolean;
@@ -252,6 +255,7 @@ export default function ChatPage() {
     publicUrl?: string;
   }[]>([]);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [chatTheme, setChatTheme] = useState<ChatTheme>('dark');
   // Initialize states with default values, will be loaded from localStorage in useEffect
   const [hasInitialPrompt, setHasInitialPrompt] = useState<boolean>(false);
   const [agentWorkComplete, setAgentWorkComplete] = useState<boolean>(false);
@@ -288,6 +292,7 @@ export default function ChatPage() {
   const lineNumberRef = useRef<HTMLDivElement>(null);
   const editedContentRef = useRef<string>('');
   const [isFileUpdating, setIsFileUpdating] = useState(false);
+  const isDarkTheme = chatTheme === 'dark';
   const activeBrandColor =
     assistantBrandColors[preferredCli] || assistantBrandColors[DEFAULT_ACTIVE_CLI];
   const modelOptions = useMemo(() => buildModelOptions(cliStatuses), [cliStatuses]);
@@ -320,6 +325,25 @@ export default function ChatPage() {
   useEffect(() => {
     previewUrlRef.current = previewUrl;
   }, [previewUrl]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const storedTheme = window.localStorage.getItem(CHAT_THEME_STORAGE_KEY);
+    if (storedTheme === 'light' || storedTheme === 'dark') {
+      setChatTheme(storedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(CHAT_THEME_STORAGE_KEY, chatTheme);
+  }, [chatTheme]);
 
   const sendInitialPrompt = useCallback(async (initialPrompt: string) => {
     if (initialPromptSent) {
@@ -2182,88 +2206,343 @@ const persistProjectPreferences = useCallback(
   return (
     <>
       <style jsx global>{`
-        /* Light theme syntax highlighting */
-        .hljs {
+        .chat-theme-dark {
+          color-scheme: dark;
+          --chat-bg: #070b11;
+          --chat-surface: #10161f;
+          --chat-surface-2: #151d27;
+          --chat-surface-3: #1b2531;
+          --chat-border: rgba(53, 64, 81, 0.92);
+          --chat-border-soft: rgba(74, 89, 112, 0.7);
+          --chat-text: #eef4ff;
+          --chat-text-soft: #cfd8e6;
+          --chat-muted: #99a5b8;
+          --chat-blue-bg: rgba(59, 130, 246, 0.16);
+          --chat-blue-border: rgba(96, 165, 250, 0.28);
+          --chat-blue-text: #8ec1ff;
+          --chat-green-bg: rgba(16, 185, 129, 0.16);
+          --chat-green-border: rgba(52, 211, 153, 0.28);
+          --chat-green-text: #7ee0b3;
+          --chat-red-bg: rgba(248, 113, 113, 0.16);
+          --chat-red-border: rgba(248, 113, 113, 0.28);
+          --chat-red-text: #ffaba4;
+          --chat-amber-bg: rgba(245, 158, 11, 0.16);
+          --chat-amber-border: rgba(251, 191, 36, 0.28);
+          --chat-amber-text: #f3ca7b;
+          --chat-yellow-bg: rgba(234, 179, 8, 0.16);
+          --chat-yellow-border: rgba(250, 204, 21, 0.26);
+          --chat-yellow-text: #f6de76;
+          --chat-purple-bg: rgba(168, 85, 247, 0.16);
+          --chat-purple-border: rgba(192, 132, 252, 0.28);
+          --chat-purple-text: #d5b3ff;
+          background:
+            radial-gradient(circle at top, rgba(89, 214, 163, 0.1), transparent 30%),
+            linear-gradient(180deg, #0b1016 0%, #070b11 100%);
+          color: var(--chat-text);
+        }
+
+        .chat-theme-light {
+          color-scheme: light;
+        }
+
+        .chat-theme-dark .bg-white {
+          background-color: var(--chat-surface) !important;
+        }
+
+        .chat-theme-dark .bg-gray-50 {
+          background-color: var(--chat-bg) !important;
+        }
+
+        .chat-theme-dark .bg-gray-50\\/60 {
+          background-color: rgba(16, 22, 31, 0.72) !important;
+        }
+
+        .chat-theme-dark .bg-gray-100 {
+          background-color: var(--chat-surface-2) !important;
+        }
+
+        .chat-theme-dark .bg-gray-200 {
+          background-color: var(--chat-surface-3) !important;
+        }
+
+        .chat-theme-dark .border-gray-200,
+        .chat-theme-dark .border-gray-300,
+        .chat-theme-dark .border-black\\/10 {
+          border-color: var(--chat-border) !important;
+        }
+
+        .chat-theme-dark .border-blue-400,
+        .chat-theme-dark .border-blue-500,
+        .chat-theme-dark .ring-gray-300 {
+          border-color: var(--chat-border-soft) !important;
+        }
+
+        .chat-theme-dark .text-gray-900,
+        .chat-theme-dark .text-gray-800 {
+          color: var(--chat-text) !important;
+        }
+
+        .chat-theme-dark .text-gray-700 {
+          color: var(--chat-text-soft) !important;
+        }
+
+        .chat-theme-dark .text-gray-600,
+        .chat-theme-dark .text-gray-500,
+        .chat-theme-dark .text-gray-400,
+        .chat-theme-dark .text-gray-300 {
+          color: var(--chat-muted) !important;
+        }
+
+        .chat-theme-dark .placeholder\\:text-gray-500::placeholder {
+          color: var(--chat-muted) !important;
+        }
+
+        .chat-theme-dark .hover\\:text-gray-900:hover,
+        .chat-theme-dark .hover\\:text-gray-700:hover,
+        .chat-theme-dark .hover\\:text-gray-600:hover {
+          color: var(--chat-text) !important;
+        }
+
+        .chat-theme-dark .hover\\:bg-gray-100:hover {
+          background-color: var(--chat-surface-2) !important;
+        }
+
+        .chat-theme-dark .hover\\:bg-gray-200:hover {
+          background-color: var(--chat-surface-3) !important;
+        }
+
+        .chat-theme-dark .shadow-sm {
+          box-shadow: none !important;
+        }
+
+        .chat-theme-dark .bg-blue-50,
+        .chat-theme-dark .bg-blue-50\\/90,
+        .chat-theme-dark .bg-blue-100 {
+          background-color: var(--chat-blue-bg) !important;
+        }
+
+        .chat-theme-dark .border-blue-200 {
+          border-color: var(--chat-blue-border) !important;
+        }
+
+        .chat-theme-dark .text-blue-900,
+        .chat-theme-dark .text-blue-700,
+        .chat-theme-dark .text-blue-600,
+        .chat-theme-dark .text-blue-500,
+        .chat-theme-dark .text-blue-400 {
+          color: var(--chat-blue-text) !important;
+        }
+
+        .chat-theme-dark .bg-green-50,
+        .chat-theme-dark .bg-emerald-50 {
+          background-color: var(--chat-green-bg) !important;
+        }
+
+        .chat-theme-dark .border-green-200,
+        .chat-theme-dark .border-emerald-200,
+        .chat-theme-dark .border-emerald-300\\/80 {
+          border-color: var(--chat-green-border) !important;
+        }
+
+        .chat-theme-dark .text-green-900,
+        .chat-theme-dark .text-green-700,
+        .chat-theme-dark .text-green-600,
+        .chat-theme-dark .text-emerald-700 {
+          color: var(--chat-green-text) !important;
+        }
+
+        .chat-theme-dark .bg-red-50 {
+          background-color: var(--chat-red-bg) !important;
+        }
+
+        .chat-theme-dark .border-red-200 {
+          border-color: var(--chat-red-border) !important;
+        }
+
+        .chat-theme-dark .text-red-900,
+        .chat-theme-dark .text-red-800,
+        .chat-theme-dark .text-red-700,
+        .chat-theme-dark .text-red-600,
+        .chat-theme-dark .text-red-400 {
+          color: var(--chat-red-text) !important;
+        }
+
+        .chat-theme-dark .bg-amber-50 {
+          background-color: var(--chat-amber-bg) !important;
+        }
+
+        .chat-theme-dark .border-amber-200 {
+          border-color: var(--chat-amber-border) !important;
+        }
+
+        .chat-theme-dark .text-amber-700 {
+          color: var(--chat-amber-text) !important;
+        }
+
+        .chat-theme-dark .bg-yellow-50 {
+          background-color: var(--chat-yellow-bg) !important;
+        }
+
+        .chat-theme-dark .border-yellow-200 {
+          border-color: var(--chat-yellow-border) !important;
+        }
+
+        .chat-theme-dark .text-yellow-900,
+        .chat-theme-dark .text-yellow-600 {
+          color: var(--chat-yellow-text) !important;
+        }
+
+        .chat-theme-dark .bg-purple-50 {
+          background-color: var(--chat-purple-bg) !important;
+        }
+
+        .chat-theme-dark .border-purple-200 {
+          border-color: var(--chat-purple-border) !important;
+        }
+
+        .chat-theme-dark .text-purple-900,
+        .chat-theme-dark .text-purple-600 {
+          color: var(--chat-purple-text) !important;
+        }
+
+        .chat-theme-dark .bg-black {
+          background-color: var(--chat-bg) !important;
+        }
+
+        .chat-theme-dark .caret-gray-800 {
+          caret-color: var(--chat-text) !important;
+        }
+
+        .chat-theme-dark .hljs {
+          background: transparent !important;
+          color: #d9e3f1 !important;
+        }
+
+        .chat-theme-dark .hljs-punctuation,
+        .chat-theme-dark .hljs-bracket,
+        .chat-theme-dark .hljs-operator {
+          color: #f4f7fb !important;
+          font-weight: 600 !important;
+        }
+
+        .chat-theme-dark .hljs-built_in,
+        .chat-theme-dark .hljs-keyword {
+          color: #c9a7ff !important;
+          font-weight: 600 !important;
+        }
+
+        .chat-theme-dark .hljs-string,
+        .chat-theme-dark .hljs-tag,
+        .chat-theme-dark .hljs-name {
+          color: #7ee0b3 !important;
+        }
+
+        .chat-theme-dark .hljs-number,
+        .chat-theme-dark .hljs-variable,
+        .chat-theme-dark .hljs-attr {
+          color: #ffaba4 !important;
+        }
+
+        .chat-theme-dark .hljs-comment {
+          color: #7f8ba1 !important;
+          font-style: italic;
+        }
+
+        .chat-theme-dark .hljs-function,
+        .chat-theme-dark .hljs-title {
+          color: #8ec1ff !important;
+          font-weight: 600 !important;
+        }
+
+        .chat-theme-dark .hljs-punctuation:is([data-char="("], [data-char=")"], [data-char="["], [data-char="]"], [data-char="{"], [data-char="}"]) {
+          color: #f4f7fb !important;
+          font-weight: bold !important;
+          background: rgba(142, 193, 255, 0.12);
+          border-radius: 2px;
+          padding: 0 1px;
+        }
+
+        .chat-theme-light .hljs {
           background: #f9fafb !important;
           color: #374151 !important;
         }
 
-        .hljs-punctuation,
-        .hljs-bracket,
-        .hljs-operator {
+        .chat-theme-light .hljs-punctuation,
+        .chat-theme-light .hljs-bracket,
+        .chat-theme-light .hljs-operator {
           color: #1f2937 !important;
           font-weight: 600 !important;
         }
 
-        .hljs-built_in,
-        .hljs-keyword {
+        .chat-theme-light .hljs-built_in,
+        .chat-theme-light .hljs-keyword {
           color: #7c3aed !important;
           font-weight: 600 !important;
         }
 
-        .hljs-string {
+        .chat-theme-light .hljs-string {
           color: #059669 !important;
         }
 
-        .hljs-number {
+        .chat-theme-light .hljs-number {
           color: #dc2626 !important;
         }
 
-        .hljs-comment {
+        .chat-theme-light .hljs-comment {
           color: #6b7280 !important;
           font-style: italic;
         }
 
-        .hljs-function,
-        .hljs-title {
+        .chat-theme-light .hljs-function,
+        .chat-theme-light .hljs-title {
           color: #2563eb !important;
           font-weight: 600 !important;
         }
 
-        .hljs-variable,
-        .hljs-attr {
+        .chat-theme-light .hljs-variable,
+        .chat-theme-light .hljs-attr {
           color: #dc2626 !important;
         }
 
-        .hljs-tag,
-        .hljs-name {
+        .chat-theme-light .hljs-tag,
+        .chat-theme-light .hljs-name {
           color: #059669 !important;
         }
 
-        /* Make parentheses, brackets, and braces more visible */
-        .hljs-punctuation:is([data-char="("], [data-char=")"], [data-char="["], [data-char="]"], [data-char="{"], [data-char="}"]) {
+        .chat-theme-light .hljs-punctuation:is([data-char="("], [data-char=")"], [data-char="["], [data-char="]"], [data-char="{"], [data-char="}"]) {
           color: #1f2937 !important;
           font-weight: bold !important;
           background: rgba(59, 130, 246, 0.1);
           border-radius: 2px;
           padding: 0 1px;
         }
-
       `}</style>
 
-      <div className="h-screen bg-white flex relative overflow-hidden">
+      <div className={`chat-page ${isDarkTheme ? 'chat-theme-dark' : 'chat-theme-light'} h-screen flex relative overflow-hidden`}>
         <div className="h-full w-full flex">
           {/* Left: Chat window */}
           <div
             style={{ width: '30%' }}
-            className="h-full border-r border-gray-200 flex flex-col"
+            className={`h-full border-r flex flex-col ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}
           >
             {/* Chat header */}
-            <div className="bg-white border-b border-gray-200 p-4 h-[73px] flex items-center">
-              <div className="flex items-center gap-3">
+            <div className={`bg-white border-b px-4 py-4 min-h-[88px] flex items-start overflow-hidden ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
+              <div className="flex w-full min-w-0 items-start gap-3">
                 <button
                   onClick={() => router.push('/')}
-                  className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                  className="mt-0.5 flex w-8 h-8 flex-shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:text-gray-600 hover:bg-gray-100"
                   title="Back to home"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M19 12H5M12 19L5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
-                <div>
-                  <h1 className="text-lg font-semibold text-gray-900 ">{projectName || 'Loading...'}</h1>
+                <div className="min-w-0">
+                  <h1 className="line-clamp-2 break-words text-base font-semibold leading-tight text-gray-900 sm:text-lg">
+                    {projectName || 'Loading...'}
+                  </h1>
                   {projectDescription && (
-                    <p className="text-sm text-gray-500 ">
+                    <p className="mt-1 line-clamp-2 break-words text-sm leading-5 text-gray-500 ">
                       {projectDescription}
                     </p>
                   )}
@@ -2326,6 +2605,7 @@ const persistProjectPreferences = useCallback(
                 selectedModel={selectedModel}
                 thinkingMode={thinkingMode}
                 onThinkingModeChange={setThinkingMode}
+                theme={chatTheme}
                 modelOptions={modelOptions}
                 onModelChange={handleModelChange}
                 modelChangeDisabled={isUpdatingModel}
@@ -2341,7 +2621,7 @@ const persistProjectPreferences = useCallback(
             {/* Content area */}
             <div className="flex-1 min-h-0 flex flex-col">
               {/* Controls Bar */}
-              <div className="bg-white border-b border-gray-200 px-4 h-[73px] flex items-center justify-between">
+              <div className={`bg-white border-b px-4 h-[73px] flex items-center justify-between ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
                 <div className="flex items-center gap-3">
                   {/* Toggle switch */}
                   <div className="flex items-center bg-gray-100 rounded-lg p-1">
@@ -2371,7 +2651,7 @@ const persistProjectPreferences = useCallback(
                   {showPreview && previewUrl && (
                     <div className="flex items-center gap-3">
                       {/* Route Navigation */}
-                      <div className="h-9 flex items-center bg-gray-100 rounded-lg px-3 border border-gray-200 ">
+                      <div className={`h-9 flex items-center bg-gray-100 rounded-lg px-3 border ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
                         <span className="text-gray-400 mr-2">
                           <FaHome size={12} />
                         </span>
@@ -2415,7 +2695,7 @@ const persistProjectPreferences = useCallback(
                         </button>
 
                         {/* Device Mode Toggle */}
-                        <div className="h-9 flex items-center gap-1 bg-gray-100 rounded-lg px-1 border border-gray-200 ">
+                        <div className={`h-9 flex items-center gap-1 bg-gray-100 rounded-lg px-1 border ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
                           <button
                             aria-label="Desktop preview"
                             className={`h-7 w-7 flex items-center justify-center rounded transition-colors ${
@@ -2445,6 +2725,33 @@ const persistProjectPreferences = useCallback(
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <div className={`flex items-center gap-1 rounded-lg border bg-gray-100 p-1 ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
+                    <button
+                      onClick={() => setChatTheme('dark')}
+                      className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+                        isDarkTheme
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                      title="Use dark theme"
+                      aria-label="Use dark theme"
+                    >
+                      <Moon size={13} />
+                    </button>
+                    <button
+                      onClick={() => setChatTheme('light')}
+                      className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+                        !isDarkTheme
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                      title="Use light theme"
+                      aria-label="Use light theme"
+                    >
+                      <Sun size={13} />
+                    </button>
+                  </div>
+
                   {/* Settings Button */}
                   <button
                     onClick={() => setShowGlobalSettings(true)}
