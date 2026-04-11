@@ -13,11 +13,88 @@ async function writeFileIfMissing(filePath: string, contents: string) {
   await fs.writeFile(filePath, contents, 'utf8');
 }
 
+interface ScaffoldPackageVersions {
+  next: string;
+  react: string;
+  reactDom: string;
+  typescript: string;
+  typesReact: string;
+  typesNode: string;
+  eslint: string;
+  eslintConfigNext: string;
+  postcss: string;
+  autoprefixer: string;
+}
+
+const DEFAULT_SCAFFOLD_PACKAGE_VERSIONS: ScaffoldPackageVersions = {
+  next: '^15.5.6',
+  react: '19.0.0',
+  reactDom: '19.0.0',
+  typescript: '^5.7.2',
+  typesReact: '^19.0.0',
+  typesNode: '^22.10.0',
+  eslint: '^9.17.0',
+  eslintConfigNext: '^15.5.6',
+  postcss: '^8.4.49',
+  autoprefixer: '^10.4.20',
+};
+
+async function loadHostScaffoldPackageVersions(): Promise<ScaffoldPackageVersions> {
+  try {
+    const hostPackageJsonPath = path.resolve(process.cwd(), 'package.json');
+    const hostPackageJsonRaw = await fs.readFile(hostPackageJsonPath, 'utf8');
+    const hostPackageJson = JSON.parse(hostPackageJsonRaw) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const hostNextVersion =
+      hostPackageJson.dependencies?.next ??
+      DEFAULT_SCAFFOLD_PACKAGE_VERSIONS.next;
+    const hostEslintConfigNextVersion =
+      hostPackageJson.devDependencies?.['eslint-config-next'];
+
+    return {
+      next: hostNextVersion,
+      react:
+        hostPackageJson.dependencies?.react ??
+        DEFAULT_SCAFFOLD_PACKAGE_VERSIONS.react,
+      reactDom:
+        hostPackageJson.dependencies?.['react-dom'] ??
+        DEFAULT_SCAFFOLD_PACKAGE_VERSIONS.reactDom,
+      typescript:
+        hostPackageJson.devDependencies?.typescript ??
+        DEFAULT_SCAFFOLD_PACKAGE_VERSIONS.typescript,
+      typesReact:
+        hostPackageJson.devDependencies?.['@types/react'] ??
+        DEFAULT_SCAFFOLD_PACKAGE_VERSIONS.typesReact,
+      typesNode:
+        hostPackageJson.devDependencies?.['@types/node'] ??
+        DEFAULT_SCAFFOLD_PACKAGE_VERSIONS.typesNode,
+      eslint:
+        hostPackageJson.devDependencies?.eslint ??
+        DEFAULT_SCAFFOLD_PACKAGE_VERSIONS.eslint,
+      eslintConfigNext:
+        hostEslintConfigNextVersion === hostNextVersion
+          ? hostEslintConfigNextVersion
+          : hostNextVersion,
+      postcss:
+        hostPackageJson.devDependencies?.postcss ??
+        DEFAULT_SCAFFOLD_PACKAGE_VERSIONS.postcss,
+      autoprefixer:
+        hostPackageJson.devDependencies?.autoprefixer ??
+        DEFAULT_SCAFFOLD_PACKAGE_VERSIONS.autoprefixer,
+    };
+  } catch {
+    return DEFAULT_SCAFFOLD_PACKAGE_VERSIONS;
+  }
+}
+
 export async function scaffoldBasicNextApp(
   projectPath: string,
   projectId: string
 ) {
   await fs.mkdir(projectPath, { recursive: true });
+  const packageVersions = await loadHostScaffoldPackageVersions();
 
   const packageJson = {
     name: projectId,
@@ -30,16 +107,18 @@ export async function scaffoldBasicNextApp(
       lint: 'next lint',
     },
     dependencies: {
-      next: '15.1.0',
-      react: '19.0.0',
-      'react-dom': '19.0.0',
+      next: packageVersions.next,
+      react: packageVersions.react,
+      'react-dom': packageVersions.reactDom,
     },
     devDependencies: {
-      typescript: '^5.7.2',
-      '@types/react': '^19.0.0',
-      '@types/node': '^22.10.0',
-      eslint: '^9.17.0',
-      'eslint-config-next': '15.1.0',
+      typescript: packageVersions.typescript,
+      '@types/react': packageVersions.typesReact,
+      '@types/node': packageVersions.typesNode,
+      eslint: packageVersions.eslint,
+      'eslint-config-next': packageVersions.eslintConfigNext,
+      postcss: packageVersions.postcss,
+      autoprefixer: packageVersions.autoprefixer,
     },
   };
 
@@ -50,14 +129,21 @@ export async function scaffoldBasicNextApp(
 
   await writeFileIfMissing(
     path.join(projectPath, 'next.config.js'),
-    `/** @type {import('next').NextConfig} */
-const nextConfig = {
-  experimental: {
-    typedRoutes: true,
-  },
-};
+    `const path = require('path');
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {};
+nextConfig.outputFileTracingRoot = path.resolve(__dirname);
 
 module.exports = nextConfig;
+`
+  );
+
+  await writeFileIfMissing(
+    path.join(projectPath, 'postcss.config.js'),
+    `module.exports = {
+  plugins: {},
+};
 `
   );
 
@@ -233,7 +319,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const projectRoot = path.join(__dirname, '..');
-const isWindows = process.platform === 'win32';
+const nextCli = path.join(projectRoot, 'node_modules', 'next', 'dist', 'bin', 'next');
 
 function parseCliArgs(argv) {
   const passthrough = [];
@@ -315,14 +401,15 @@ function resolvePort(preferredPort) {
   console.log(\`🚀 Starting Next.js dev server on \${url}\`);
 
   const child = spawn(
-    'npx',
-    ['next', 'dev', '--port', String(port), ...passthrough],
+    process.execPath,
+    [nextCli, 'dev', '--port', String(port), ...passthrough],
     {
       cwd: projectRoot,
       stdio: 'inherit',
-      shell: isWindows,
+      shell: false,
       env: {
         ...process.env,
+        NODE_ENV: 'development',
         PORT: String(port),
         WEB_PORT: String(port),
         NEXT_PUBLIC_APP_URL: url,

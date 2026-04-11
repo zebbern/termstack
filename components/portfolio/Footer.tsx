@@ -1,26 +1,26 @@
 'use client'
 
 import Link from 'next/link'
-import { Github, Linkedin, Twitter, Mail, ArrowUp } from 'lucide-react'
+import { ArrowUp } from 'lucide-react'
 
 const Footer = () => {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const socialLinks = [
-    { icon: Github, label: 'GitHub', href: 'https://github.com' },
-    { icon: Linkedin, label: 'LinkedIn', href: 'https://linkedin.com' },
-    { icon: Twitter, label: 'Twitter', href: 'https://twitter.com' },
-    { icon: Mail, label: 'Email', href: 'mailto:hello@example.com' },
+  const resourceLinks = [
+    { label: 'GitHub', href: 'https://github.com/zebbern/termstack' },
+    { label: 'Claude Code docs', href: 'https://docs.anthropic.com/en/docs/claude-code/setup' },
+    { label: 'Vercel', href: 'https://vercel.com' },
+    { label: 'Supabase', href: 'https://supabase.com' },
   ]
 
   const navLinks = [
-    { label: 'Home', href: '#hero' },
-    { label: 'Projects', href: '#projects' },
-    { label: 'Skills', href: '#skills' },
-    { label: 'About', href: '#about' },
-    { label: 'Contact', href: '#contact' },
+    { label: 'Overview', href: '#hero' },
+    { label: 'Workflows', href: '#projects' },
+    { label: 'Capabilities', href: '#skills' },
+    { label: 'Stack', href: '#about' },
+    { label: 'Start', href: '#contact' },
   ]
 
   return (
@@ -32,10 +32,10 @@ const Footer = () => {
             {/* Brand */}
             <div className="space-y-4">
               <Link href="/" className="text-2xl font-bold gradient-text inline-block">
-                Portfolio
+                termstack
               </Link>
               <p className="text-slate-400 text-sm max-w-xs">
-                Creating beautiful web experiences with modern technologies and best practices.
+                Local AI app builder with a real Next.js workspace, preview-first iteration, and deploy hooks when you need them.
               </p>
             </div>
 
@@ -58,21 +58,21 @@ const Footer = () => {
 
             {/* Social Links */}
             <div className="space-y-4">
-              <h4 className="font-bold text-slate-100">Follow</h4>
-              <div className="flex gap-3">
-                {socialLinks.map((social) => (
-                  <a
-                    key={social.label}
-                    href={social.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-3 rounded-lg bg-slate-900 border border-slate-700 hover:border-purple-500 hover:text-purple-400 text-slate-400 transition-all duration-300"
-                    aria-label={social.label}
-                  >
-                    <social.icon size={18} />
-                  </a>
+              <h4 className="font-bold text-slate-100">Resources</h4>
+              <ul className="space-y-2">
+                {resourceLinks.map((resource) => (
+                  <li key={resource.label}>
+                    <a
+                      href={resource.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-slate-400 hover:text-slate-200 transition-colors duration-300 text-sm"
+                    >
+                      {resource.label}
+                    </a>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           </div>
 
@@ -82,7 +82,7 @@ const Footer = () => {
           {/* Bottom Section */}
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-slate-400 text-sm">
-              © 2024 Alex Developer. All rights reserved.
+              termstack is open-source. Review CLI licenses and third-party hosting costs before deploying generated apps.
             </p>
 
             {/* Scroll to Top Button */}

@@ -14,6 +14,7 @@ const { PrismaClient } = require('@prisma/client');
 
 const rootDir = path.join(__dirname, '..');
 const isWindows = os.platform() === 'win32';
+const nextCli = path.join(rootDir, 'node_modules', 'next', 'dist', 'bin', 'next');
 
 dotenv.config({ path: path.join(rootDir, '.env') });
 dotenv.config({ path: path.join(rootDir, '.env.local') });
@@ -142,14 +143,15 @@ async function startWebDevServer({
   console.log(`🚀 Starting Next.js dev server on ${resolvedUrl}`);
 
   const child = spawn(
-    'npx',
-    ['next', 'dev', '--port', resolvedPort.toString(), ...passthrough],
+    process.execPath,
+    [nextCli, 'dev', '--port', resolvedPort.toString(), ...passthrough],
     {
       cwd: rootDir,
       stdio,
-      shell: isWindows,
+      shell: false,
       env: {
         ...process.env,
+        NODE_ENV: 'development',
         PORT: resolvedPort.toString(),
         WEB_PORT: resolvedPort.toString(),
         NEXT_PUBLIC_APP_URL: resolvedUrl,

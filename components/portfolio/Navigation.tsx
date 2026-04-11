@@ -8,11 +8,11 @@ const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false)
 
   const navLinks = [
-    { href: '#hero', label: 'Home' },
-    { href: '#projects', label: 'Projects' },
-    { href: '#skills', label: 'Skills' },
-    { href: '#about', label: 'About' },
-    { href: '#contact', label: 'Contact' },
+    { href: '#hero', label: 'Overview' },
+    { href: '#projects', label: 'Workflows' },
+    { href: '#skills', label: 'Capabilities' },
+    { href: '#about', label: 'Stack' },
+    { href: '#contact', label: 'Start' },
   ]
 
   return (
@@ -22,7 +22,7 @@ const Navigation = () => {
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link href="/" className="text-2xl font-bold gradient-text">
-              Portfolio
+              termstack
             </Link>
           </div>
 
@@ -42,7 +42,7 @@ const Navigation = () => {
           {/* CTA Button */}
           <div className="hidden md:block">
             <a href="#contact" className="btn-primary">
-              Get In Touch
+              Start Building
             </a>
           </div>
 
@@ -72,7 +72,7 @@ const Navigation = () => {
                 </a>
               ))}
               <a href="#contact" className="btn-primary w-full text-center">
-                Get In Touch
+                Start Building
               </a>
             </div>
           </div>

@@ -20,7 +20,7 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+    <header className="sticky top-0 z-40 border-b border-[var(--app-border)] bg-[rgba(11,14,18,0.94)] backdrop-blur">
       <div className="max-w-7xl mx-auto py-4 px-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -30,7 +30,7 @@ export default function Header() {
                 onClick={() => {
                   window.location.href = '/';
                 }}
-                className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-muted)] transition-colors hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--app-text)]"
                 title="Back to projects"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -53,7 +53,7 @@ export default function Header() {
           <div className="flex items-center gap-3">
             {/* Global settings */}
             <button
-              className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-all duration-200"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--app-border)] text-[var(--app-muted)] transition-all duration-200 hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--app-text)]"
               onClick={() => setGlobalSettingsOpen(true)}
               title="Global Settings"
             >

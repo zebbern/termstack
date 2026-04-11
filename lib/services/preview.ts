@@ -2,13 +2,14 @@
  * PreviewManager - Handles per-project development servers (live preview)
  */
 
-import { spawn, type ChildProcess } from 'child_process';
+import { spawn, type ChildProcess, type SpawnOptions } from 'child_process';
 import path from 'path';
 import fs from 'fs/promises';
 import { findAvailablePort } from '@/lib/utils/ports';
 import { getProjectById, updateProject, updateProjectStatus } from './project';
 import { scaffoldBasicNextApp } from '@/lib/utils/scaffold';
 import { PREVIEW_CONFIG } from '@/lib/config/constants';
+import type { Project } from '@/types/backend';
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
@@ -31,6 +32,11 @@ const LOG_LIMIT = PREVIEW_CONFIG.LOG_LIMIT;
 const PREVIEW_FALLBACK_PORT_START = PREVIEW_CONFIG.FALLBACK_PORT_START;
 const PREVIEW_FALLBACK_PORT_END = PREVIEW_CONFIG.FALLBACK_PORT_END;
 const PREVIEW_MAX_PORT = 65_535;
+
+function shouldUseCommandShell(command: string): boolean {
+  return process.platform === 'win32' && /\.(cmd|bat)$/i.test(command);
+}
+
 const ROOT_ALLOWED_FILES = new Set([
   '.DS_Store',
   '.editorconfig',
@@ -584,11 +590,12 @@ async function appendCommandLogs(
   env: NodeJS.ProcessEnv,
   logger: (chunk: Buffer | string) => void
 ) {
+  const useShell = shouldUseCommandShell(command);
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
       env,
-      shell: process.platform === 'win32',
+      shell: useShell,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -623,6 +630,108 @@ async function ensureDependencies(
   await runInstallWithPreferredManager(projectPath, env, logger);
 }
 
+async function captureCommandOutput(
+  command: string,
+  args: string[]
+): Promise<string> {
+  const useShell = shouldUseCommandShell(command);
+  return await new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      shell: useShell,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout?.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', (error) => reject(error));
+    child.on('close', (code) => {
+      if (code === 0 || (process.platform === 'win32' && !stdout.trim())) {
+        resolve(stdout);
+        return;
+      }
+
+      reject(
+        new Error(
+          stderr.trim() || `${command} ${args.join(' ')} exited with code ${code}`
+        )
+      );
+    });
+  });
+}
+
+async function getListeningProcessIdsForPort(port: number): Promise<number[]> {
+  if (!Number.isInteger(port) || port <= 0) {
+    return [];
+  }
+
+  try {
+    const output =
+      process.platform === 'win32'
+        ? await captureCommandOutput('powershell.exe', [
+            '-NoProfile',
+            '-Command',
+            `$pids = Get-NetTCPConnection -State Listen -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($pids) { $pids -join ',' }`,
+          ])
+        : await captureCommandOutput('lsof', [
+            '-ti',
+            `tcp:${port}`,
+            '-sTCP:LISTEN',
+          ]);
+
+    return output
+      .split(/[,\r\n]+/)
+      .map((value) => Number.parseInt(value.trim(), 10))
+      .filter((value) => Number.isInteger(value) && value > 0);
+  } catch (error) {
+    console.warn(
+      `[PreviewManager] Failed to inspect port ${port}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    return [];
+  }
+}
+
+async function terminateProcessById(pid: number): Promise<void> {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return;
+  }
+
+  if (process.platform === 'win32') {
+    await captureCommandOutput('powershell.exe', [
+      '-NoProfile',
+      '-Command',
+      `Stop-Process -Id ${pid} -Force -ErrorAction SilentlyContinue`,
+    ]);
+    return;
+  }
+
+  try {
+    process.kill(pid, 'SIGTERM');
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException;
+    if (err.code !== 'ESRCH') {
+      throw error;
+    }
+  }
+}
+
+async function terminateProcessesListeningOnPort(port: number): Promise<void> {
+  const processIds = await getListeningProcessIdsForPort(port);
+  for (const pid of processIds) {
+    // eslint-disable-next-line no-await-in-loop
+    await terminateProcessById(pid);
+  }
+}
+
 export interface PreviewInfo {
   port: number | null;
   url: string | null;
@@ -651,7 +760,10 @@ class PreviewManager {
     };
   }
 
-  public async installDependencies(projectId: string): Promise<{ logs: string[] }> {
+  public async installDependencies(
+    projectId: string,
+    options?: { force?: boolean }
+  ): Promise<{ logs: string[] }> {
     const project = await getProjectById(projectId);
     if (!project) {
       throw new Error('Project not found');
@@ -669,6 +781,7 @@ class PreviewManager {
       console.log(formatted);
       logs.push(formatted);
     };
+    const forceInstall = options?.force === true;
 
     await ensureProjectRootStructure(projectPath, record);
 
@@ -680,6 +793,9 @@ class PreviewManager {
     }
 
     const hadNodeModules = await directoryExists(path.join(projectPath, 'node_modules'));
+    if (forceInstall) {
+      record('Dependency manifest changed. Reinstalling dependencies.');
+    }
 
     const collectFromChunk = (chunk: Buffer | string) => {
       chunk
@@ -694,7 +810,7 @@ class PreviewManager {
       const installPromise = (async () => {
         try {
           const hasNodeModules = await directoryExists(path.join(projectPath, 'node_modules'));
-          if (!hasNodeModules) {
+          if (forceInstall || !hasNodeModules) {
             await runInstallWithPreferredManager(
               projectPath,
               { ...process.env },
@@ -718,7 +834,9 @@ class PreviewManager {
       await runInstall();
     }
 
-    if (hadNodeModules) {
+    if (forceInstall) {
+      record('Dependency reinstallation completed.');
+    } else if (hadNodeModules) {
       record('Dependencies already installed. Skipped install command.');
     } else {
       record('Dependency installation completed.');
@@ -740,14 +858,80 @@ class PreviewManager {
       return pendingStart;
     }
 
-    const startPromise = this._doStart(projectId).finally(() => {
+    const project = await getProjectById(projectId);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    const recoveredPreview = await this.recoverPersistedPreview(projectId, project);
+    if (recoveredPreview) {
+      return recoveredPreview;
+    }
+
+    const startPromise = this._doStart(projectId, project).finally(() => {
       this.starting.delete(projectId);
     });
     this.starting.set(projectId, startPromise);
     return startPromise;
   }
 
-  private async _doStart(projectId: string): Promise<PreviewInfo> {
+  private async recoverPersistedPreview(
+    projectId: string,
+    project: Project
+  ): Promise<PreviewInfo | null> {
+    if (!project.previewUrl || !project.previewPort) {
+      return null;
+    }
+
+    const recoveredProcess: PreviewProcess = {
+      process: null,
+      port: project.previewPort,
+      url: project.previewUrl,
+      status: 'starting',
+      logs: [],
+      startedAt: new Date(),
+    };
+    const log = this.getLogger(recoveredProcess);
+    log(
+      Buffer.from(
+        '[PreviewManager] Found persisted preview metadata. Checking if the preview is still reachable.'
+      )
+    );
+
+    const reachable = await waitForPreviewReadySingle(
+      recoveredProcess.url,
+      log,
+      2_000,
+      150,
+      500
+    );
+
+    if (!reachable) {
+      log(
+        Buffer.from(
+          '[PreviewManager] Persisted preview was unreachable. Clearing stale preview metadata.'
+        )
+      );
+      await updateProject(projectId, {
+        previewUrl: null,
+        previewPort: null,
+      });
+      await updateProjectStatus(projectId, 'idle');
+      return null;
+    }
+
+    recoveredProcess.status = 'running';
+    this.processes.set(projectId, recoveredProcess);
+    await updateProjectStatus(projectId, 'running');
+    log(
+      Buffer.from(
+        '[PreviewManager] Recovered preview from persisted metadata after app restart.'
+      )
+    );
+    return this.toInfo(recoveredProcess);
+  }
+
+  private async _doStart(projectId: string, project?: Project): Promise<PreviewInfo> {
     // Re-check after acquiring the lock (another concurrent call may have started it)
     const existing = this.processes.get(projectId);
     if (existing && existing.status !== 'error') {
@@ -764,13 +948,13 @@ class PreviewManager {
       this.processes.delete(projectId);
     }
 
-    const project = await getProjectById(projectId);
-    if (!project) {
+    const resolvedProject = project ?? await getProjectById(projectId);
+    if (!resolvedProject) {
       throw new Error('Project not found');
     }
 
-    const projectPath = project.repoPath
-      ? path.resolve(project.repoPath)
+    const projectPath = resolvedProject.repoPath
+      ? path.resolve(resolvedProject.repoPath)
       : path.join(process.cwd(), 'projects', projectId);
 
     await fs.mkdir(projectPath, { recursive: true });
@@ -803,6 +987,7 @@ class PreviewManager {
 
     const env: NodeJS.ProcessEnv = {
       ...process.env,
+      NODE_ENV: 'development',
       PORT: String(preferredPort),
       WEB_PORT: String(preferredPort),
       NEXT_PUBLIC_APP_URL: initialUrl,
@@ -922,32 +1107,42 @@ class PreviewManager {
     env.NEXT_PUBLIC_APP_URL = resolvedUrl;
     previewProcess.url = resolvedUrl;
 
-    const child = spawn(
-      npmCommand,
-      ['run', 'dev', '--', '--port', String(effectivePort)],
-      {
-        cwd: projectPath,
-        env,
-        shell: process.platform === 'win32',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }
-    );
+    const runDevScriptPath = path.join(projectPath, 'scripts', 'run-dev.js');
+    const nextCliPath = path.join(projectPath, 'node_modules', 'next', 'dist', 'bin', 'next');
+    const hasRunDevScript = await fileExists(runDevScriptPath);
+    const hasNextCli = hasRunDevScript ? false : await fileExists(nextCliPath);
+
+    const spawnOptions: SpawnOptions = {
+      cwd: projectPath,
+      env,
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    };
+
+    const child: ChildProcess = hasRunDevScript
+      ? spawn(process.execPath, [runDevScriptPath], spawnOptions)
+      : hasNextCli
+        ? spawn(process.execPath, [nextCliPath, 'dev'], spawnOptions)
+        : spawn(npmCommand, ['run', 'dev'], {
+            ...spawnOptions,
+            shell: process.platform === 'win32',
+          });
 
     previewProcess.process = child;
     this.processes.set(projectId, previewProcess);
 
-    child.stdout?.on('data', (chunk) => {
+    child.stdout?.on('data', (chunk: Buffer | string) => {
       log(chunk);
       if (previewProcess.status === 'starting') {
         previewProcess.status = 'running';
       }
     });
 
-    child.stderr?.on('data', (chunk) => {
+    child.stderr?.on('data', (chunk: Buffer | string) => {
       log(chunk);
     });
 
-    child.on('exit', (code, signal) => {
+    child.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
       previewProcess.status = code === 0 ? 'stopped' : 'error';
       this.processes.delete(projectId);
       updateProject(projectId, {
@@ -968,7 +1163,7 @@ class PreviewManager {
       );
     });
 
-    child.on('error', (error) => {
+    child.on('error', (error: Error) => {
       previewProcess.status = 'error';
       log(Buffer.from(`Preview process failed: ${error.message}`));
     });
@@ -996,8 +1191,17 @@ class PreviewManager {
 
   public async stop(projectId: string): Promise<PreviewInfo> {
     const processInfo = this.processes.get(projectId);
+    const project = await getProjectById(projectId);
+    const previewPort = processInfo?.port ?? project?.previewPort ?? null;
+
     if (!processInfo) {
-      const project = await getProjectById(projectId);
+      if (previewPort) {
+        try {
+          await terminateProcessesListeningOnPort(previewPort);
+        } catch (error) {
+          console.error('[PreviewManager] Failed to stop persisted preview process:', error);
+        }
+      }
       if (project) {
         await updateProject(projectId, {
           previewUrl: null,
@@ -1017,6 +1221,14 @@ class PreviewManager {
       processInfo.process?.kill('SIGTERM');
     } catch (error) {
       console.error('[PreviewManager] Failed to stop preview process:', error);
+    }
+
+    if (previewPort) {
+      try {
+        await terminateProcessesListeningOnPort(previewPort);
+      } catch (error) {
+        console.error('[PreviewManager] Failed to stop preview process by port:', error);
+      }
     }
 
     this.processes.delete(projectId);

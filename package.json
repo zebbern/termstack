@@ -76,7 +76,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/termstack.git"
+    "url": "https://github.com/zebbern/termstack.git"
   },
   "build": {
     "appId": "com.termstack.desktop",

@@ -1,30 +1,25 @@
 # Termstack
 
-<div align="center">
-<h3>Connect CLI Agent • Build what you want • Deploy instantly</h3>
-</div>
+_Connect a supported CLI. Build in a live workspace. Deploy when ready._
 
 ## What is termstack?
 
-termstack is a powerful Next.js-based web app builder that combines **C**laude Code's (Cursor CLI also supported!) advanced AI agent capabilities with **Lovable**'s simple and intuitive app building experience. Just describe your app idea - "I want a task management app with dark mode" - and watch as termstack instantly generates the code and shows you a live preview of your working app. You can deploy your app to Vercel and integrate database with Supabase for free.
+termstack is an open-source browser and desktop workspace for AI-assisted app building. It connects a supported coding CLI to a real Next.js project, lets you describe what you want in natural language, and keeps the chat, file changes, tool output, and live preview in the same loop.
 
-This open-source project empowers you to build and deploy professional web applications easily for **free**.
+Instead of generating a static mockup, termstack edits an actual project directory that you can inspect, rerun, and deploy when the result is ready. GitHub, Vercel, and Supabase hooks are built in for the cases where you want to move from local iteration to a real deployment.
 
-How to start? Simply login to Claude Code (or Cursor CLI), start termstack, and describe what you want to build. That's it. There is no additional subscription cost for app builder.
+To get started, authenticate at least one supported CLI, launch termstack, create a project, and start describing what you want to build.
 
 ## Features
 
-- **Powerful Agent Performance**: Leverage the full power of Claude Code and Cursor CLI Agent capabilities
-- **Natural Language to Code**: Simply describe what you want to build, and termstack generates production-ready Next.js code
-- **Instant Preview**: See your changes immediately with hot-reload as AI builds your app
-- **Zero Setup, Instant Launch**: No complex sandboxes, no API key, no database headaches - just start building immediately
-- **Beautiful UI**: Generate beautiful UI with Tailwind CSS and shadcn/ui
-- **Deploy to Vercel**: Push your app live with a single click, no configuration needed
-- **GitHub Integration**: Automatic version control and continuous deployment setup
-- **Supabase Database**: Connect production PostgreSQL with authentication ready to use
-- **Desktop App**: Available as Electron desktop application for Mac, Windows, and Linux
+- **Bring your own coding agent**: Use Claude Code, Codex CLI, Cursor CLI, Qwen Code, or Z.AI GLM inside the same workspace
+- **Natural language to code**: Describe the product you want and let the selected agent edit a real Next.js project
+- **Preview-first workflow**: Watch changes land in the live preview while you inspect the generated files
+- **Project-local state**: Keep messages, settings, tokens, and service connections scoped to each project
+- **Deploy hooks when you need them**: Connect GitHub, Vercel, and Supabase without leaving the app
+- **Desktop support**: Run the same workflow in the Electron wrapper on macOS, Windows, and Linux
 
-## Demo Example *(coming soon)*
+## Demo Example _(coming soon)_
 
 ## Supported AI Coding Agents
 
@@ -37,69 +32,85 @@ termstack supports multiple AI coding agents, giving you the flexibility to choo
 - **Z.AI GLM-4.6** - Zhipu AI's coding agent
 
 ### Claude Code (Recommended)
+
 **[Claude Code](https://docs.anthropic.com/en/docs/claude-code/setup)** - Anthropic's advanced AI coding agent with Claude Opus 4.6
+
 - **Features**: Deep codebase awareness, Unix philosophy, direct terminal integration
 - **Context**: Native 200k tokens
 - **Pricing**: Included with Claude Pro/Max/Team/Enterprise plans, or Anthropic API key
 - **Installation**:
+
   ```bash
   npm install -g @anthropic-ai/claude-code
   claude  # then > /login
   ```
 
 ### Codex CLI
+
 **[Codex CLI](https://github.com/openai/codex)** - OpenAI's powerful coding agent with GPT-5 support
+
 - **Features**: High reasoning capabilities, local execution, multiple operating modes (interactive, auto-edit, full-auto)
 - **Context**: Varies by model
 - **Pricing**: Included with ChatGPT Plus/Pro/Business/Edu/Enterprise plans (from $20/month)
 - **Installation**:
+
   ```bash
   npm install -g @openai/codex
   codex  # login with ChatGPT account
   ```
 
 ### Cursor CLI
+
 **[Cursor CLI](https://cursor.com/en/cli)** - Powerful AI agent with access to cutting-edge models
+
 - **Features**: Multi-model support (Anthropic, OpenAI), AGENTS.md support
 - **Context**: Model dependent
 - **Pricing**: Free tier available, Pro from $20/month (credit-based system)
 - **Installation**:
+
   ```bash
   curl https://cursor.com/install -fsS | bash
   cursor-agent login
   ```
 
 ### Qwen Code
+
 **[Qwen Code](https://github.com/QwenLM/qwen-code)** - Alibaba's open-source CLI for Qwen3-Coder models
+
 - **Features**: 256K-1M token context, multiple model sizes (0.5B to 480B), Apache 2.0 license
 - **Context**: 256K native, 1M with extrapolation
 - **Pricing**: Completely free and open-source
 - **Installation**:
+
   ```bash
   npm install -g @qwen-code/qwen-code@latest
   qwen --version
   ```
 
 ### Z.AI GLM-4.6
+
 **[Z.AI GLM-4.6](https://z.ai/subscribe)** - Zhipu AI's coding agent powered by GLM-4.6
+
 - **Features**: Strong reasoning capabilities and cost-efficient, code generation and understanding
 - **Context**: 200K tokens
 - **Pricing**: Starting from $3/month (GLM Coding Lite) to $30/month (GLM Coding Max), with 50% off first month
 - **Installation**: See [Quick Start Guide](https://docs.z.ai/devpack/quick-start)
 
-## Technology Stack
+## Deployment & Data Services
 
 **Database & Deployment:**
+
 - **[Supabase](https://supabase.com/)**: Connect production-ready PostgreSQL database directly to your project.
 - **[Vercel](https://vercel.com/)**: Publish your work immediately with one-click deployment
 
-**There is no additional subscription cost and built just for YOU.**
+termstack itself is open-source. Any CLI subscription or hosting cost depends on the external services you choose to connect.
 
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
-- Node.js 18+
-- Claude Code or Cursor CLI (already logged in)
+
+- Node.js 20+
+- At least one supported CLI already installed and authenticated
 - Git
 
 ## Quick Start
@@ -118,16 +129,9 @@ npm install
 npm run dev
 ```
 
-Your application will be available at http://localhost:3000
+Your application will be available at <http://localhost:3000>
 
 **Note**: Ports are automatically detected. If the default port is in use, the next available port will be assigned.
-
-## Troubleshooting
-- **Database migration conflicts**: If you upgraded from a previous termstack version and run into database errors, reset the Prisma database so it matches the latest schema:
-  ```bash
-  npm run prisma:reset
-  ```
-  The command drops and recreates the local database, so back up any data you need before running it.
 
 ## Setup
 
@@ -154,20 +158,14 @@ npm run package:win      # Windows
 npm run package:linux    # Linux
 ```
 
-### Additional Commands
+### Helpful Commands
+
 ```bash
-npm run db:backup   # Create a backup of your SQLite database
-                    # Use when: Before major changes or deployments
-                    # Creates: data/backups/cc_backup_[timestamp].db
-
-npm run db:reset    # Reset database to initial state
-                    # Use when: Need fresh start or corrupted data
-                    # Warning: This will delete all your data!
-
-npm run clean       # Remove all dependencies
-                    # Use when: Dependencies conflict or need fresh install
-                    # Removes: node_modules/, package-lock.json
-                    # After running: npm install to reinstall everything
+npm run check-cli       # Check local Claude CLI availability
+npm run type-check      # Run TypeScript without emitting files
+npm run prisma:generate # Regenerate the Prisma client
+npm run prisma:push     # Push the current Prisma schema to the local DB
+npm run prisma:reset    # Reset the local Prisma database (destructive)
 ```
 
 ## Usage
@@ -186,34 +184,40 @@ termstack uses SQLite for local development. The database automatically initiali
 
 ## Troubleshooting
 
-### Port Already in Use
+### Database migration conflicts
 
-The application automatically finds available ports. Check the `.env` file to see which ports were assigned.
-
-### Installation Failures
+If you upgraded from a previous termstack version and run into database errors, reset the Prisma database so it matches the latest schema:
 
 ```bash
-# Clean all dependencies and retry
-npm run clean
-npm install
+npm run prisma:reset
 ```
+
+The command drops and recreates the local database, so back up any data you need before running it.
+
+### Port Already in Use
+
+The application automatically finds available ports. Check the generated `.env` file to see which ports were assigned.
 
 ### Claude Code Permission Issues (Windows/WSL)
 
 If you encounter the error: `Error output dangerously skip permissions cannot be used which is root sudo privileges for security reasons`
 
 **Solution:**
+
 1. Do not run Claude Code with `sudo` or as root user
 2. Ensure proper file ownership in WSL:
+
    ```bash
    # Check current user
    whoami
-   
+
    # Change ownership of project directory to current user
    sudo chown -R $(whoami):$(whoami) ~/termstack
    ```
+
 3. If using WSL, make sure you're running Claude Code from your user account, not root
 4. Verify Claude Code installation permissions:
+
    ```bash
    # Reinstall Claude Code without sudo
    npm install -g @anthropic-ai/claude-code --unsafe-perm=false
@@ -222,17 +226,21 @@ If you encounter the error: `Error output dangerously skip permissions cannot be
 ## Integration Guide
 
 ### GitHub
+
 **Get Token:** [GitHub Personal Access Tokens](https://github.com/settings/tokens) → Generate new token (classic) → Select `repo` scope
 
 **Connect:** Settings → Service Integrations → GitHub → Enter token → Create or connect repository
 
-### Vercel  
+### Vercel
+
 **Get Token:** [Vercel Account Settings](https://vercel.com/account/tokens) → Create Token
 
 **Connect:** Settings → Service Integrations → Vercel → Enter token → Create new project for deployment
 
 ### Supabase
+
 **Get Credentials:** [Supabase Dashboard](https://supabase.com/dashboard) → Your Project → Settings → API
-- Project URL: `https://xxxxx.supabase.co`  
+
+- Project URL: `https://xxxxx.supabase.co`
 - Anon Key: Public key for client-side
 - Service Role Key: Secret key for server-side

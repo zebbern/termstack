@@ -2,99 +2,125 @@
  * Path utility functions for displaying file paths in the UI
  */
 
+const PROJECT_PATH_PATTERN = /(?:^|\/)data\/projects\/project-[^/]+\/(.+)$/i;
+const ROOT_DIRECTORY_MARKERS = new Set([
+  'app',
+  'assets',
+  'components',
+  'contexts',
+  'data',
+  'docs',
+  'electron',
+  'hooks',
+  'lib',
+  'pages',
+  'prisma',
+  'public',
+  'scripts',
+  'server',
+  'services',
+  'settings',
+  'src',
+  'styles',
+  'test',
+  'tests',
+  'types',
+]);
+const ROOT_FILE_MARKERS = new Set([
+  'README.md',
+  'index.js',
+  'next-env.d.ts',
+  'next.config.js',
+  'package.json',
+  'postcss.config.js',
+  'tailwind.config.ts',
+  'tsconfig.json',
+]);
+
+function normalizePath(pathValue: string): string {
+  return pathValue.replace(/\\/g, '/');
+}
+
+function extractProjectRelativePath(normalizedPath: string): string | null {
+  const projectMatch = normalizedPath.match(PROJECT_PATH_PATTERN);
+  if (projectMatch?.[1]) {
+    return `/${projectMatch[1]}`;
+  }
+
+  const repoMarker = '/termstack/';
+  const repoIndex = normalizedPath.lastIndexOf(repoMarker);
+  if (repoIndex !== -1) {
+    return `/${normalizedPath.slice(repoIndex + repoMarker.length)}`;
+  }
+
+  const pathParts = normalizedPath.split('/').filter(Boolean);
+  const rootIndex = pathParts.findIndex(
+    (segment, index) =>
+      ROOT_DIRECTORY_MARKERS.has(segment) ||
+      (index === pathParts.length - 1 && ROOT_FILE_MARKERS.has(segment)),
+  );
+
+  if (rootIndex !== -1) {
+    return `/${pathParts.slice(rootIndex).join('/')}`;
+  }
+
+  return null;
+}
+
 /**
  * Converts an absolute file path to a project-relative path
- * Removes the system path prefix and shows only the path relative to the project root
+ * Removes the system path prefix and shows only the path relative to the repo or project workspace.
  *
- * @param absolutePath - The absolute file path (e.g., /Users/jjh/Downloads/termstack-v2/src/app/page.tsx)
- * @returns The relative path from project root (e.g., /src/app/page.tsx)
+ * @param absolutePath - The file path to normalize for display
+ * @returns The relative path from the current repo or generated project root
  *
  * @example
- * toRelativePath('/Users/jjh/Downloads/termstack-v2/src/app/page.tsx')
- * // Returns: '/src/app/page.tsx'
+ * toRelativePath('C:/Users/zeb/Documents/workspace_for_ai/termstack/app/page.tsx')
+ * // Returns: '/app/page.tsx'
  */
 export function toRelativePath(absolutePath: string): string {
   if (!absolutePath) return absolutePath;
 
-  // If the string looks like plain text (contains whitespace), return as-is
-  if (/\s/.test(absolutePath)) {
-    return absolutePath;
+  const trimmedPath = absolutePath.trim();
+  if (!trimmedPath) return trimmedPath;
+
+  const normalizedPath = normalizePath(trimmedPath);
+  const looksLikePath =
+    normalizedPath.includes('/') ||
+    /^[A-Za-z]:\//.test(normalizedPath) ||
+    normalizedPath.startsWith('./') ||
+    normalizedPath.startsWith('../') ||
+    /^[^/\s]+\.[A-Za-z0-9]+$/.test(normalizedPath);
+
+  if (!looksLikePath && /\s/.test(trimmedPath)) {
+    return trimmedPath;
   }
 
-  // Check if this is an absolute path
   const isAbsolutePath =
-    absolutePath.startsWith('/') ||
-    absolutePath.startsWith('\\') ||
-    /^[A-Za-z]:[\\\/]/.test(absolutePath); // Windows path like C:\
+    normalizedPath.startsWith('/') ||
+    /^[A-Za-z]:\//.test(normalizedPath);
 
   if (!isAbsolutePath) {
-    // Handle relative paths - check for user project directory pattern
-    // Pattern: data/projects/project-{id}/...
-    const userProjectPattern = /^data\/projects\/project-[^\/]+\/(.*)/;
-    const match = absolutePath.match(userProjectPattern);
-    if (match && match[1]) {
-      // Extract the path after the project directory
-      return `/${match[1]}`;
+    const relativeProjectPath = extractProjectRelativePath(normalizedPath);
+    if (relativeProjectPath) {
+      return relativeProjectPath;
     }
 
-    // Other relative paths: just add leading slash
-    return absolutePath.startsWith('/') ? absolutePath : `/${absolutePath}`;
+    const withoutLeadingDots = normalizedPath.replace(/^\.\//, '');
+    return withoutLeadingDots.startsWith('/') ? withoutLeadingDots : `/${withoutLeadingDots}`;
   }
 
-  // Get the project root from environment variable (injected by next.config.js)
-  const projectRoot = process.env.NEXT_PUBLIC_PROJECT_ROOT;
-
-  if (projectRoot) {
-    // Normalize both paths to use forward slashes for comparison
-    const normalizedPath = absolutePath.replace(/\\/g, '/');
-    const normalizedRoot = projectRoot.replace(/\\/g, '/');
-
-    if (normalizedPath.startsWith(normalizedRoot)) {
-      // Remove the project root and return with leading slash
-      let relativePath = normalizedPath.substring(normalizedRoot.length);
-
-      // Check if this is a user project path
-      const userProjectPattern = /^\/data\/projects\/project-[^\/]+\/(.*)/;
-      const projectMatch = relativePath.match(userProjectPattern);
-      if (projectMatch && projectMatch[1]) {
-        return `/${projectMatch[1]}`;
-      }
-
-      return relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
-    }
+  const extractedPath = extractProjectRelativePath(normalizedPath);
+  if (extractedPath) {
+    return extractedPath;
   }
 
-  // Fallback: Try to find common project directory patterns
-  const projectPatterns = [
-    '/termstack-v2/',
-    '\\termstack-v2\\',
-  ];
-
-  for (const pattern of projectPatterns) {
-    const index = absolutePath.indexOf(pattern);
-    if (index !== -1) {
-      let relativePath = absolutePath.substring(index + pattern.length - 1);
-
-      // Check if this is a user project path
-      const userProjectPattern = /^\/data\/projects\/project-[^\/]+\/(.*)/;
-      const projectMatch = relativePath.match(userProjectPattern);
-      if (projectMatch && projectMatch[1]) {
-        return `/${projectMatch[1]}`;
-      }
-
-      return relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
-    }
-  }
-
-  // Last resort: Return just the last few segments of the path
-  // This handles paths like /Users/jjh/package.json -> /package.json
-  const parts = absolutePath.split(/[/\\]/);
+  const parts = normalizedPath.split('/').filter(Boolean);
   if (parts.length > 0) {
-    // Return the filename with a leading slash
     return `/${parts[parts.length - 1]}`;
   }
 
-  return absolutePath;
+  return normalizedPath;
 }
 
 /**

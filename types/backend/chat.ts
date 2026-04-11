@@ -35,7 +35,8 @@ export interface ImageAttachment {
   publicUrl?: string;
   public_url?: string;
   /**
-   * Absolute filesystem path for agent consumption.
+  * Project-relative asset path received from the client.
+  * The API normalizes this to an absolute path on the server before passing it to the agent.
    */
   path?: string;
   /**

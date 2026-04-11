@@ -99,7 +99,7 @@ export function ProjectSettings({
     >
         <div className="flex h-full">
           {/* Sidebar Tabs */}
-          <div className="w-56 bg-white border-r border-gray-200 ">
+          <div className="w-56 border-r border-[var(--app-border)] bg-[var(--app-surface)]">
           <nav className="p-4 space-y-1">
             {availableTabs.map(tab => (
               <button
@@ -107,11 +107,11 @@ export function ProjectSettings({
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left transition-all duration-200 ${
                   activeTab === tab.id
-                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 shadow-sm border border-blue-200 '
-                    : 'hover:bg-gray-50 text-gray-600 hover:text-gray-900 '
+                    ? 'border border-[var(--app-accent)] bg-[rgba(89,214,163,0.08)] text-[var(--app-text)]'
+                    : 'text-[var(--app-muted)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--app-text)]'
                 }`}
               >
-                <span className={activeTab === tab.id ? 'text-blue-600 ' : 'text-gray-500 '}>
+                <span className={activeTab === tab.id ? 'text-[var(--app-accent)]' : 'text-[var(--app-muted)]'}>
                   {tab.icon}
                 </span>
                 <span className="text-sm font-medium">{tab.label}</span>
@@ -121,7 +121,7 @@ export function ProjectSettings({
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto bg-white ">
+        <div className="flex-1 overflow-y-auto bg-[var(--app-surface-2)]">
           {activeTab === 'general' && isProjectScoped && (
             <GeneralSettings
               projectId={projectId}
@@ -130,18 +130,18 @@ export function ProjectSettings({
               onProjectUpdated={onProjectUpdated}
             />
           )}
-          
+
           {activeTab === 'ai-assistant' && (
             <AIAssistantSettings projectId={projectId} />
           )}
-          
+
           {activeTab === 'environment' && (
             <EnvironmentSettings projectId={projectId} />
           )}
-          
+
           {activeTab === 'services' && (
-            <ServiceSettings 
-              projectId={projectId} 
+            <ServiceSettings
+              projectId={projectId}
               onOpenGlobalSettings={() => {
                 // Open Global Settings with services tab
                 setShowGlobalSettings(true);
@@ -152,10 +152,10 @@ export function ProjectSettings({
         </div>
       </div>
     </SettingsModal>
-    
+
     {/* Global Settings Modal */}
     {showGlobalSettings && (
-      <GlobalSettings 
+      <GlobalSettings
         isOpen={showGlobalSettings}
         onClose={() => {
           setShowGlobalSettings(false);

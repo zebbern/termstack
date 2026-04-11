@@ -11,7 +11,7 @@ interface UploadedImage {
   path: string;
   url: string;
   assetUrl?: string;
-   publicUrl?: string;
+  publicUrl?: string;
 }
 
 interface ModelPickerOption {
@@ -250,9 +250,9 @@ export default function ChatInput({
         const newImage: UploadedImage = {
           id: crypto.randomUUID(),
           filename: result.filename,
-          path: result.absolute_path,
+          path: typeof result.path === 'string' ? result.path : `assets/${result.filename}`,
           url: imageUrl,
-          assetUrl: `/api/assets/${projectId}/${result.filename}`,
+          assetUrl: typeof result.url === 'string' ? result.url : `/api/assets/${projectId}/${result.filename}`,
           publicUrl: typeof result.public_url === 'string' ? result.public_url : undefined
         };
 
@@ -291,10 +291,10 @@ export default function ChatInput({
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       if (!projectId || !supportsImageUpload) return;
-      
+
       const items = e.clipboardData?.items;
       if (!items) return;
-      
+
       const imageFiles: File[] = [];
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
@@ -305,7 +305,7 @@ export default function ChatInput({
           }
         }
       }
-      
+
       if (imageFiles.length > 0) {
         e.preventDefault();
         const fileList = {
@@ -317,19 +317,19 @@ export default function ChatInput({
             }
           }
         } as FileList;
-        
+
         // Convert to FileList-like object
         Object.defineProperty(fileList, 'length', { value: imageFiles.length });
         imageFiles.forEach((file, index) => {
           Object.defineProperty(fileList, index, { value: file });
         });
-        
+
         handleFiles(fileList);
       }
     };
-    
+
     document.addEventListener('paste', handlePaste);
-    
+
     return () => {
       document.removeEventListener('paste', handlePaste);
     };

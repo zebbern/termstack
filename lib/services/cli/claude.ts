@@ -4,7 +4,7 @@
  * Interacts with projects using the Claude Agent SDK.
  */
 
-import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { query, type Options, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeSession, ClaudeResponse } from '@/types/backend';
 import { streamManager } from '../stream';
 import { serializeMessage, createRealtimeMessage } from '@/lib/serializers/chat';
@@ -14,6 +14,7 @@ import { CLAUDE_DEFAULT_MODEL, normalizeClaudeModelId, getClaudeModelDisplayName
 import path from 'path';
 import fs from 'fs/promises';
 import { randomUUID } from 'crypto';
+import { previewManager } from '../preview';
 import {
   markUserRequestAsRunning,
   markUserRequestAsCompleted,
@@ -55,6 +56,81 @@ const TOOL_NAME_ACTION_MAP: Record<string, ToolAction> = {
   todo: 'Generated',
   plan_write: 'Generated',
 };
+
+const PROJECT_SNAPSHOT_IGNORED_DIRS = new Set([
+  '.git',
+  '.next',
+  '.turbo',
+  'build',
+  'coverage',
+  'dist',
+  'node_modules',
+]);
+
+const DEPENDENCY_MANIFEST_PATHS = new Set([
+  'bun.lockb',
+  'package-lock.json',
+  'package.json',
+  'pnpm-lock.yaml',
+  'yarn.lock',
+]);
+
+const PREVIEW_RESTART_PATHS = new Set([
+  ...DEPENDENCY_MANIFEST_PATHS,
+  'next.config.js',
+  'next.config.mjs',
+  'next.config.ts',
+  'postcss.config.js',
+  'postcss.config.mjs',
+  'postcss.config.ts',
+  'tailwind.config.cjs',
+  'tailwind.config.js',
+  'tailwind.config.ts',
+]);
+
+const DISALLOWED_BASH_PATTERNS = [
+  /\b(?:npm|pnpm|yarn|bun)\s+(?:install|add|update|upgrade|remove|ci)\b/i,
+  /\b(?:npm|pnpm|yarn|bun)\s+run\s+(?:dev|build|start|test|lint|predev)\b/i,
+  /\bnext\s+(?:dev|build|start)\b/i,
+  /\brm\s+-rf\s+(?:\.next|node_modules)\b/i,
+  /\brimraf\s+(?:\.next|node_modules)\b/i,
+  /\bRemove-Item\b.*(?:\.next|node_modules)/i,
+  /\bdel\b.*(?:\.next|node_modules)/i,
+];
+
+function normalizeBashCommand(input: Record<string, unknown>): string {
+  const directCommand = input.command;
+  if (typeof directCommand === 'string') {
+    return directCommand.trim();
+  }
+
+  const nestedToolInput = input.toolInput;
+  if (nestedToolInput && typeof nestedToolInput === 'object') {
+    const nestedCommand = (nestedToolInput as Record<string, unknown>).command;
+    if (typeof nestedCommand === 'string') {
+      return nestedCommand.trim();
+    }
+  }
+
+  return '';
+}
+
+function isDisallowedBashCommand(command: string): boolean {
+  return DISALLOWED_BASH_PATTERNS.some((pattern) => pattern.test(command));
+}
+
+interface ProjectSnapshotEntry {
+  mtimeMs: number;
+  size: number;
+}
+
+type ProjectSnapshot = Map<string, ProjectSnapshotEntry>;
+
+interface ProjectSnapshotDiff {
+  created: string[];
+  updated: string[];
+  deleted: string[];
+}
 
 const normalizeAction = (value: unknown): ToolAction | undefined => {
   if (typeof value !== 'string') return undefined;
@@ -550,6 +626,92 @@ function resolveModelId(model?: string | null): string {
   return normalizeClaudeModelId(model);
 }
 
+async function collectProjectSnapshot(projectPath: string): Promise<ProjectSnapshot> {
+  const snapshot: ProjectSnapshot = new Map();
+
+  const walk = async (currentPath: string, relativeDir = ''): Promise<void> => {
+    const entries = await fs.readdir(currentPath, { withFileTypes: true });
+
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      if (entry.isDirectory() && PROJECT_SNAPSHOT_IGNORED_DIRS.has(entry.name)) {
+        continue;
+      }
+
+      const nextRelative = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+      const entryPath = path.join(currentPath, entry.name);
+
+      if (entry.isDirectory()) {
+        await walk(entryPath, nextRelative);
+        continue;
+      }
+
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      const stat = await fs.stat(entryPath);
+      snapshot.set(nextRelative.replace(/\\/g, '/'), {
+        mtimeMs: stat.mtimeMs,
+        size: stat.size,
+      });
+    }
+  };
+
+  await walk(projectPath);
+
+  return snapshot;
+}
+
+function diffProjectSnapshots(before: ProjectSnapshot, after: ProjectSnapshot): ProjectSnapshotDiff {
+  const created: string[] = [];
+  const updated: string[] = [];
+  const deleted: string[] = [];
+
+  for (const [relativePath, afterEntry] of after.entries()) {
+    const beforeEntry = before.get(relativePath);
+
+    if (!beforeEntry) {
+      created.push(relativePath);
+      continue;
+    }
+
+    if (beforeEntry.size !== afterEntry.size || beforeEntry.mtimeMs !== afterEntry.mtimeMs) {
+      updated.push(relativePath);
+    }
+  }
+
+  for (const relativePath of before.keys()) {
+    if (!after.has(relativePath)) {
+      deleted.push(relativePath);
+    }
+  }
+
+  return { created, updated, deleted };
+}
+
+function summarizeProjectSnapshotDiff(diff: ProjectSnapshotDiff): string {
+  const segments: string[] = [];
+  const formatPaths = (paths: string[]) => paths.slice(0, 5).join(', ');
+
+  if (diff.created.length > 0) {
+    segments.push(`created ${formatPaths(diff.created)}${diff.created.length > 5 ? ', …' : ''}`);
+  }
+
+  if (diff.updated.length > 0) {
+    segments.push(`updated ${formatPaths(diff.updated)}${diff.updated.length > 5 ? ', …' : ''}`);
+  }
+
+  if (diff.deleted.length > 0) {
+    segments.push(`deleted ${formatPaths(diff.deleted)}${diff.deleted.length > 5 ? ', …' : ''}`);
+  }
+
+  return segments.join('; ');
+}
+
+function collectChangedProjectPaths(diff: ProjectSnapshotDiff): string[] {
+  return [...diff.created, ...diff.updated, ...diff.deleted];
+}
+
 /**
  * Execute command using Claude Agent SDK
  *
@@ -578,11 +740,6 @@ export async function executeClaude(
   console.log(`[ClaudeService] Session ID: ${sessionId || 'new session'}`);
   console.log(`[ClaudeService] Instruction: ${instruction.substring(0, 100)}...`);
   console.log(`========================================\n`);
-
-  const configuredMaxTokens = Number(process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS);
-  const maxOutputTokens = Number.isFinite(configuredMaxTokens) && configuredMaxTokens > 0
-    ? configuredMaxTokens
-    : 4000;
 
   let hasMarkedTerminalStatus = false;
   let emittedCompletedStatus = false;
@@ -709,43 +866,68 @@ export async function executeClaude(
       await fs.mkdir(absoluteProjectPath, { recursive: true });
     }
 
+    const snapshotBefore = await collectProjectSnapshot(absoluteProjectPath);
+
     // Send ready notification via SSE
     publishStatus('ready', 'Project verified. Starting AI...');
 
     // Start Claude Agent SDK query
     console.log(`[ClaudeService] 🤖 Querying Claude Agent SDK...`);
     console.log(`[ClaudeService] 📁 Working Directory: ${absoluteProjectPath}`);
-    const response = query({
-      prompt: instruction,
-      options: {
-        workingDirectory: absoluteProjectPath, // Work only in project folder (protects termstack root)
-        additionalDirectories: [absoluteProjectPath],
-        model: resolvedModel,
-        resume: sessionId, // Resume previous session
-        permissionMode: 'bypassPermissions', // Auto-approve commands and edits
-        systemPrompt: `You are an expert web developer building a Next.js application.
+    const queryOptions: Options = {
+      cwd: absoluteProjectPath,
+      additionalDirectories: [absoluteProjectPath],
+      model: resolvedModel,
+      permissionMode: 'bypassPermissions',
+      allowDangerouslySkipPermissions: true,
+      tools: ['Read', 'Write', 'Edit', 'Glob', 'Grep'],
+      canUseTool: async (toolName, input) => {
+        if (toolName.toLowerCase() === 'bash') {
+          const bashCommand = normalizeBashCommand(input);
+          if (bashCommand && isDisallowedBashCommand(bashCommand)) {
+            return {
+              behavior: 'deny',
+              message:
+                'The platform manages installs, builds, tests, cleanup, and preview processes. Do not run shell commands for those tasks; edit project files and rely on the managed preview instead.',
+            };
+          }
+        }
+
+        return { behavior: 'allow' };
+      },
+      systemPrompt: `You are an expert web developer building a Next.js application.
+- This is an implementation task. You must make the required file changes in the current working directory before claiming completion.
 - Use Next.js 15 App Router
 - Use TypeScript
-- Use Tailwind CSS for styling
+- Prefer the existing styling stack in the project. For fresh projects, default to plain CSS, CSS Modules, or inline styles unless the user explicitly asks for Tailwind CSS.
+- If you add Tailwind CSS, use the compatible v3 stack for this platform: tailwindcss@3.4.17 with postcss@8.4.49 and autoprefixer@10.4.20, plus the classic \`@tailwind base;\`, \`@tailwind components;\`, and \`@tailwind utilities;\` directives. Do not use Tailwind v4-only syntax or \`@tailwindcss/postcss\`.
 - Write clean, production-ready code
 - Follow best practices
-- The platform automatically installs dependencies and manages the preview dev server. Do not run package managers or dev-server commands yourself; rely on the existing preview.
+- The platform automatically installs dependencies and manages the preview dev server. Never run package managers or dev-server commands yourself. If you need a dependency, edit package.json with the required version and let the platform handle installation after your file changes.
+- Never run build, test, clean, or framework lifecycle commands yourself (for example: npm/yarn/pnpm/bun commands, next build/dev/start, or project-wide validation shell commands). The platform owns installs, builds, and preview orchestration.
+- Never delete or reset build artifacts, caches, or dependencies such as \`.next\`, \`node_modules\`, lockfiles, or generated manifests. Those files may be in active use by the managed preview.
 - Keep all project files directly in the project root. Never scaffold frameworks into subdirectories (avoid commands like "mkdir new-app" or "create-next-app my-app"; run generators against the current directory instead).
 - Never override ports or start your own development server processes. Rely on the managed preview service which assigns ports from the approved pool.
 - When sharing a preview link, read the actual NEXT_PUBLIC_APP_URL (e.g. from .env/.env.local or project metadata) instead of assuming a default port.
-- Prefer giving the user the live preview link that is actually running rather than written instructions.`,
-        maxOutputTokens,
-        // Capture SDK stderr so we can surface real errors instead of just exit code
-        stderr: (data: string) => {
-          const line = String(data).trimEnd();
-          if (!line) return;
-          // Keep only the last ~200 lines to avoid memory bloat
-          if (stderrBuffer.length > 200) stderrBuffer.shift();
-          stderrBuffer.push(line);
-          // Also mirror to server logs for live debugging
-          console.error(`[ClaudeSDK][stderr] ${line}`);
-        },
-      } as any,
+- Prefer giving the user the live preview link that is actually running rather than written instructions.
+- Before you say something is finished, verify the key files you changed by reading them back from this working directory instead of invoking local build/dev/test commands.
+- Never claim that a feature is built, updated, or running unless you actually changed the project files in this workspace.`,
+      stderr: (data: string) => {
+        const line = String(data).trimEnd();
+        if (!line) return;
+        if (stderrBuffer.length > 200) stderrBuffer.shift();
+        stderrBuffer.push(line);
+        console.error(`[ClaudeSDK][stderr] ${line}`);
+      },
+    };
+
+    if (sessionId) {
+      queryOptions.resume = sessionId;
+    }
+
+    const response = query({
+      prompt: instruction,
+      options: queryOptions,
     });
 
     let currentSessionId: string | undefined = sessionId;
@@ -1074,17 +1256,53 @@ export async function executeClaude(
       } else if (message.type === 'result') {
         // Final result
         console.log('[ClaudeService] Task completed:', message.subtype);
-
-        publishStatus('completed');
-        emittedCompletedStatus = true;
-        await safeMarkCompleted();
       }
+    }
+
+    const snapshotAfter = await collectProjectSnapshot(absoluteProjectPath);
+    const snapshotDiff = diffProjectSnapshots(snapshotBefore, snapshotAfter);
+    const hasProjectFileChanges =
+      snapshotDiff.created.length > 0 ||
+      snapshotDiff.updated.length > 0 ||
+      snapshotDiff.deleted.length > 0;
+
+    if (!hasProjectFileChanges) {
+      throw new Error(
+        'Claude completed without modifying any project files. This usually means it stayed in analysis mode or targeted the wrong workspace.'
+      );
+    }
+
+    const changedPaths = collectChangedProjectPaths(snapshotDiff);
+    const dependencyManifestChanged = changedPaths.some((relativePath) =>
+      DEPENDENCY_MANIFEST_PATHS.has(relativePath)
+    );
+    const previewRestartRequired = changedPaths.some((relativePath) =>
+      PREVIEW_RESTART_PATHS.has(relativePath)
+    );
+
+    const snapshotSummary = summarizeProjectSnapshotDiff(snapshotDiff);
+    console.log(
+      `[ClaudeService] ✅ Verified project file changes in ${absoluteProjectPath}: ${snapshotSummary}`
+    );
+
+    if (dependencyManifestChanged) {
+      publishStatus('running', 'Installing updated dependencies...');
+      await previewManager.installDependencies(projectId, { force: true });
+    }
+
+    if (previewRestartRequired) {
+      publishStatus('running', 'Restarting preview...');
+      const previewStatus = previewManager.getStatus(projectId);
+      if (previewStatus.status !== 'stopped') {
+        await previewManager.stop(projectId);
+      }
+      await previewManager.start(projectId);
     }
 
     console.log('[ClaudeService] Streaming completed');
     await safeMarkCompleted();
     if (!emittedCompletedStatus) {
-      publishStatus('completed');
+      publishStatus('completed', snapshotSummary);
       emittedCompletedStatus = true;
     }
   } catch (error) {
@@ -1189,11 +1407,13 @@ export async function initializeNextJsProject(
 
   // Next.js project creation command
   const fullPrompt = `
-Create a new Next.js 15 application with the following requirements:
+Use the existing Next.js 15 application in the current working directory and implement the following requirements directly in that project:
 ${initialPrompt}
 
-Use App Router, TypeScript, and Tailwind CSS.
-Set up the basic project structure and implement the requested features.
+Use App Router and TypeScript. Prefer the existing CSS setup unless the user explicitly requests Tailwind CSS. If you do add Tailwind, pin tailwindcss@3.4.17, postcss@8.4.49, and autoprefixer@10.4.20 with the classic Tailwind v3 PostCSS configuration.
+Implement the requested features by editing project files in place.
+Do not run install, build, dev, test, or cleanup commands yourself, and never delete \`.next\`, \`node_modules\`, lockfiles, or other build artifacts while the managed preview is active.
+Do not stop after analysis or planning, and do not just describe the solution.
 `.trim();
 
   await executeClaude(projectId, projectPath, fullPrompt, model, undefined, requestId);

@@ -224,3 +224,81 @@ export async function updateProjectCliPreference(
     selectedModel: normalizeModelId(result.preferredCli ?? 'claude', result.selectedModel ?? undefined),
   };
 }
+
+interface ConversationCliPreference {
+  preferredCli: string;
+  selectedModel?: string;
+}
+
+export async function getConversationCliPreference(
+  projectId: string,
+  conversationId: string
+): Promise<ConversationCliPreference | null> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { settings: true },
+  });
+  if (!project?.settings) return null;
+
+  try {
+    const settings = JSON.parse(project.settings);
+    const prefs = settings?.conversationCliPreferences?.[conversationId];
+    return prefs ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setConversationCliPreference(
+  projectId: string,
+  conversationId: string,
+  preference: ConversationCliPreference
+): Promise<void> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { settings: true },
+  });
+
+  let settings: Record<string, unknown> = {};
+  if (project?.settings) {
+    try {
+      settings = JSON.parse(project.settings);
+    } catch {
+      settings = {};
+    }
+  }
+
+  if (!settings.conversationCliPreferences) {
+    settings.conversationCliPreferences = {};
+  }
+  (settings.conversationCliPreferences as Record<string, ConversationCliPreference>)[conversationId] = preference;
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { settings: JSON.stringify(settings) },
+  });
+}
+
+export async function clearConversationCliPreference(
+  projectId: string,
+  conversationId: string
+): Promise<void> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { settings: true },
+  });
+  if (!project?.settings) return;
+
+  try {
+    const settings = JSON.parse(project.settings);
+    if (settings?.conversationCliPreferences?.[conversationId]) {
+      delete settings.conversationCliPreferences[conversationId];
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { settings: JSON.stringify(settings) },
+      });
+    }
+  } catch {
+    // Silently ignore parse errors on clear
+  }
+}

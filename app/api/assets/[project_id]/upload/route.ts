@@ -48,8 +48,6 @@ export async function POST(request: Request, { params }: RouteContext) {
     const arrayBuffer = await file.arrayBuffer();
     await fs.writeFile(resolvedAbsolutePath, Buffer.from(arrayBuffer));
 
-    let hostPublicPath: string | null = null;
-    let projectPublicPath: string | null = null;
     let publicUrl: string | null = null;
     try {
       const rootUploadsDir = path.join(process.cwd(), 'public', 'uploads');
@@ -60,7 +58,6 @@ export async function POST(request: Request, { params }: RouteContext) {
       } catch {
         await fs.copyFile(resolvedAbsolutePath, hostDestination);
       }
-      hostPublicPath = hostDestination;
       publicUrl = `/uploads/${uniqueName}`;
     } catch (copyError) {
       console.warn('[Assets Upload] Failed to mirror asset into application public/uploads:', copyError);
@@ -72,16 +69,15 @@ export async function POST(request: Request, { params }: RouteContext) {
         : path.join(PROJECTS_DIR_ABSOLUTE, project_id);
       const uploadsDir = path.join(projectRoot, 'public', 'uploads');
       await fs.mkdir(uploadsDir, { recursive: true });
-      projectPublicPath = path.join(uploadsDir, uniqueName);
+      const projectDestination = path.join(uploadsDir, uniqueName);
       try {
-        await fs.access(projectPublicPath);
+        await fs.access(projectDestination);
       } catch {
-        await fs.copyFile(resolvedAbsolutePath, projectPublicPath);
+        await fs.copyFile(resolvedAbsolutePath, projectDestination);
       }
     } catch (copyError) {
       console.warn('[Assets Upload] Failed to mirror asset into project public/uploads:', copyError);
-      projectPublicPath = null;
-      if (!hostPublicPath) {
+      if (!publicUrl) {
         publicUrl = null;
       }
     }
@@ -89,10 +85,9 @@ export async function POST(request: Request, { params }: RouteContext) {
     return NextResponse.json({
       success: true,
       path: `assets/${uniqueName}`,
-      absolute_path: resolvedAbsolutePath,
       filename: uniqueName,
       original_filename: originalName,
-      public_path: hostPublicPath ?? projectPublicPath,
+      url: `/api/assets/${project_id}/${uniqueName}`,
       public_url: publicUrl,
     });
   } catch (error) {

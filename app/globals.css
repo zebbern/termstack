@@ -1,24 +1,43 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: dark;
+    --app-bg: #0b0e12;
+    --app-surface: #12171d;
+    --app-surface-2: #181e26;
+    --app-surface-3: #1d242d;
+    --app-border: rgba(255, 255, 255, 0.08);
+    --app-border-strong: rgba(255, 255, 255, 0.16);
+    --app-text: #f3f6fb;
+    --app-muted: #96a0b2;
+    --app-accent: #59d6a3;
+    --app-accent-strong: #42bf8e;
+    --app-danger: #ff7d73;
+    --app-shadow: 0 18px 50px rgba(0, 0, 0, 0.3);
+  }
+
   html,
   body {
     height: 100%;
     overscroll-behavior: none;
+    background: var(--app-bg);
   }
 
   body {
-    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: 'rlig' 1, 'calt' 1;
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
+    color: var(--app-text);
+    background: var(--app-bg);
   }
 
   h1,
@@ -27,27 +46,39 @@
   h4,
   h5,
   h6 {
-    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
-    font-weight: 700;
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
 
-  /* Scrollbar styling for dark mode */
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  ::selection {
+    background: rgba(89, 214, 163, 0.22);
+    color: var(--app-text);
+  }
+
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
 
   ::-webkit-scrollbar-track {
-    background: rgba(15, 23, 42, 0.5);
+    background: rgba(255, 255, 255, 0.03);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(100, 116, 139, 0.5);
+    background: rgba(150, 160, 178, 0.3);
     border-radius: 5px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(100, 116, 139, 0.8);
+    background: rgba(150, 160, 178, 0.5);
   }
 }
 
@@ -78,47 +109,52 @@
     animation-delay: 4s;
   }
 
-  /* Glass effect */
   .glass {
-    @apply bg-slate-900 bg-opacity-40 backdrop-blur-xl border border-slate-700 border-opacity-30;
+    background: rgba(18, 23, 29, 0.82);
+    backdrop-filter: blur(18px);
+    border: 1px solid var(--app-border);
   }
 
-  /* Gradient text */
   .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(90deg, #f3f6fb 0%, #9fe5c5 100%);
   }
 
-  /* Glowing effect */
   .glow {
-    @apply shadow-lg shadow-purple-500/50;
+    box-shadow: 0 0 0 1px rgba(89, 214, 163, 0.2), 0 16px 40px rgba(0, 0, 0, 0.24);
   }
 
-  /* Card styling */
   .card {
-    @apply glass rounded-xl p-6 transition-all duration-300 hover:border-slate-500 hover:border-opacity-60;
+    @apply rounded-xl p-6 transition-all duration-300;
+    background: rgba(18, 23, 29, 0.88);
+    border: 1px solid var(--app-border);
   }
 
   .card-hover {
-    @apply hover:shadow-xl hover:shadow-purple-500/20 hover:-translate-y-1;
+    @apply hover:-translate-y-0.5;
+    box-shadow: var(--app-shadow);
   }
 
-  /* Button styling */
   .btn-primary {
-    @apply px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg hover:shadow-xl;
+    @apply rounded-lg px-6 py-3 font-semibold transition-all duration-300;
+    background: var(--app-accent);
+    color: #06110d;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 rounded-lg font-semibold text-slate-200 border border-slate-600 hover:border-slate-400 hover:bg-slate-800 transition-all duration-300;
+    @apply rounded-lg px-6 py-3 font-semibold transition-all duration-300;
+    color: var(--app-text);
+    border: 1px solid var(--app-border);
+    background: rgba(255, 255, 255, 0.03);
   }
 
-  /* Section styling */
   .section {
     @apply py-20 px-4 md:px-8 lg:px-16;
   }
 
-  /* Text gradients */
   .text-gradient {
-    @apply bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(90deg, #f3f6fb 0%, #9fe5c5 100%);
   }
 }
 

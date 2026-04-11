@@ -8,6 +8,8 @@ import {
   getProjectById,
   updateProject,
   updateProjectActivity,
+  getConversationCliPreference,
+  setConversationCliPreference,
 } from '@/lib/services/project';
 import { createMessage } from '@/lib/services/message';
 import { initializeNextJsProject as initializeClaudeProject, applyChanges as applyClaudeChanges } from '@/lib/services/cli/claude';
@@ -48,17 +50,69 @@ function resolveAssetsPath(projectId: string): string {
   return path.join(PROJECTS_DIR_ABSOLUTE, projectId, 'assets');
 }
 
-function ensureAbsoluteAssetPath(projectId: string, inputPath: string): string {
+function isPathInsideDirectory(targetPath: string, directoryPath: string): boolean {
+  const relativePath = path.relative(directoryPath, targetPath);
+  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+}
+
+function toClientAssetPath(projectId: string, projectRoot: string, absolutePath: string): string {
+  const resolvedAbsolutePath = path.resolve(absolutePath);
+  const assetsPath = path.resolve(resolveAssetsPath(projectId));
+  if (isPathInsideDirectory(resolvedAbsolutePath, assetsPath)) {
+    return `assets/${path.basename(resolvedAbsolutePath)}`;
+  }
+
+  const projectUploadsPath = path.resolve(path.join(projectRoot, 'public', 'uploads'));
+  const hostUploadsPath = path.resolve(path.join(process.cwd(), 'public', 'uploads'));
+
+  if (
+    isPathInsideDirectory(resolvedAbsolutePath, projectUploadsPath) ||
+    isPathInsideDirectory(resolvedAbsolutePath, hostUploadsPath)
+  ) {
+    return `uploads/${path.basename(resolvedAbsolutePath)}`;
+  }
+
+  return path.basename(resolvedAbsolutePath);
+}
+
+function ensureAbsoluteAssetPath(
+  projectId: string,
+  projectRoot: string,
+  inputPath: string,
+): { absolutePath: string; clientPath: string } {
   const normalized = path.normalize(inputPath);
   if (path.isAbsolute(normalized)) {
-    return normalized;
+    const absolutePath = path.resolve(normalized);
+    return {
+      absolutePath,
+      clientPath: toClientAssetPath(projectId, projectRoot, absolutePath).replace(/\\/g, '/'),
+    };
   }
-  const resolvedFromCwd = path.resolve(process.cwd(), normalized);
-  if (resolvedFromCwd.startsWith(PROJECTS_DIR_ABSOLUTE)) {
-    return resolvedFromCwd;
-  }
+
   const projectBase = path.join(PROJECTS_DIR_ABSOLUTE, projectId);
-  return path.resolve(projectBase, normalized);
+  const allowedRoots = [
+    resolveAssetsPath(projectId),
+    path.join(projectRoot, 'public', 'uploads'),
+    path.join(process.cwd(), 'public', 'uploads'),
+  ].map((allowedRoot) => path.resolve(allowedRoot));
+
+  const candidatePaths = [
+    path.resolve(projectBase, normalized),
+    path.resolve(process.cwd(), normalized),
+  ];
+
+  const absolutePath = candidatePaths.find((candidatePath) =>
+    allowedRoots.some((allowedRoot) => isPathInsideDirectory(candidatePath, allowedRoot)),
+  );
+
+  if (!absolutePath) {
+    throw new Error('Image path must resolve inside the project asset directories.');
+  }
+
+  return {
+    absolutePath,
+    clientPath: toClientAssetPath(projectId, projectRoot, absolutePath).replace(/\\/g, '/'),
+  };
 }
 
 function resolveProjectRoot(projectId: string, repoPath?: string | null): string {
@@ -72,10 +126,10 @@ async function mirrorAssetToPublic(
   projectRoot: string,
   filename: string,
   sourcePath: string,
-): Promise<{ publicPath: string | null; publicUrl: string | null }> {
+): Promise<{ publicUrl: string | null }> {
   const resolvedSourcePath = path.isAbsolute(sourcePath) ? sourcePath : path.resolve(process.cwd(), sourcePath);
   const hostUploadsDir = path.join(process.cwd(), 'public', 'uploads');
-  let hostPublicPath: string | null = null;
+  let hostPublicUrl: string | null = null;
 
   try {
     await fs.mkdir(hostUploadsDir, { recursive: true });
@@ -85,7 +139,7 @@ async function mirrorAssetToPublic(
     } catch {
       await fs.copyFile(resolvedSourcePath, destinationPath);
     }
-    hostPublicPath = destinationPath;
+    hostPublicUrl = `/uploads/${filename}`;
   } catch (error) {
     console.warn('[API] Failed to mirror asset into application public/uploads:', error);
   }
@@ -99,16 +153,10 @@ async function mirrorAssetToPublic(
     } catch {
       await fs.copyFile(resolvedSourcePath, destinationPath);
     }
-    return {
-      publicPath: hostPublicPath ?? destinationPath,
-      publicUrl: hostPublicPath ? `/uploads/${filename}` : null,
-    };
+    return { publicUrl: hostPublicUrl };
   } catch (error) {
     console.warn('[API] Failed to mirror asset into project public/uploads:', error);
-    if (hostPublicPath) {
-      return { publicPath: hostPublicPath, publicUrl: `/uploads/${filename}` };
-    }
-    return { publicPath: null, publicUrl: null };
+    return { publicUrl: hostPublicUrl };
   }
 }
 
@@ -129,7 +177,7 @@ async function materializeBase64Image(
   base64: string,
   nameHint?: string,
   mimeType?: string,
-): Promise<{ absolutePath: string; filename: string; publicUrl: string | null }> {
+): Promise<{ absolutePath: string; path: string; filename: string; publicUrl: string | null }> {
   const buffer = Buffer.from(base64, 'base64');
   const extension = inferExtensionFromMime(mimeType);
   const safeName = nameHint && nameHint.trim() ? nameHint.trim() : `image-${randomUUID()}`;
@@ -141,6 +189,7 @@ async function materializeBase64Image(
   const mirror = await mirrorAssetToPublic(projectRoot, filename, absolutePath);
   return {
     absolutePath,
+    path: `assets/${filename}`,
     filename,
     publicUrl: mirror.publicUrl,
   };
@@ -153,7 +202,7 @@ async function normalizeImageAttachment(
   projectRoot: string,
   raw: RawImageAttachment,
   index: number,
-): Promise<{ name: string; path: string; url: string; publicUrl?: string } | null> {
+): Promise<{ name: string; path: string; absolutePath: string; url: string; publicUrl?: string } | null> {
   const name = typeof raw.name === 'string' && raw.name.trim().length > 0 ? raw.name.trim() : `Image ${index + 1}`;
   const providedUrl = typeof raw.url === 'string' && raw.url.trim().length > 0 ? raw.url.trim() : undefined;
   const providedPublicUrl =
@@ -163,8 +212,7 @@ async function normalizeImageAttachment(
       ? raw.publicUrl.trim()
       : undefined;
 
-  const pathValue =
-    typeof raw.path === 'string' && raw.path.trim().length > 0 ? ensureAbsoluteAssetPath(projectId, raw.path.trim()) : null;
+  const pathValue = typeof raw.path === 'string' && raw.path.trim().length > 0 ? raw.path.trim() : null;
 
   const base64DataCandidate =
     typeof raw.base64_data === 'string'
@@ -182,16 +230,18 @@ async function normalizeImageAttachment(
 
   if (pathValue) {
     try {
-      await fs.stat(pathValue);
-      const filename = path.basename(pathValue);
+      const resolvedPath = ensureAbsoluteAssetPath(projectId, projectRoot, pathValue);
+      await fs.stat(resolvedPath.absolutePath);
+      const filename = path.basename(resolvedPath.absolutePath);
       let effectivePublicUrl = providedPublicUrl;
       if (!effectivePublicUrl) {
-        const mirror = await mirrorAssetToPublic(projectRoot, filename, pathValue);
+        const mirror = await mirrorAssetToPublic(projectRoot, filename, resolvedPath.absolutePath);
         effectivePublicUrl = mirror.publicUrl ?? undefined;
       }
       return {
         name,
-        path: pathValue,
+        path: resolvedPath.clientPath,
+        absolutePath: resolvedPath.absolutePath,
         url: providedUrl ?? `/api/assets/${projectId}/${filename}`,
         publicUrl: effectivePublicUrl,
       };
@@ -211,7 +261,8 @@ async function normalizeImageAttachment(
       );
       return {
         name,
-        path: materialized.absolutePath,
+        path: materialized.path,
+        absolutePath: materialized.absolutePath,
         url: providedUrl ?? `/api/assets/${projectId}/${materialized.filename}`,
         publicUrl: providedPublicUrl ?? materialized.publicUrl ?? undefined,
       };
@@ -254,7 +305,13 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       ? (legacyBody['images'] as RawImageAttachment[])
       : [];
 
-    const processedImages: { name: string; path: string; url: string; publicUrl?: string }[] = [];
+    const processedImages: {
+      name: string;
+      path: string;
+      absolutePath: string;
+      url: string;
+      publicUrl?: string;
+    }[] = [];
     for (let index = 0; index < rawImages.length; index += 1) {
       const normalized = await normalizeImageAttachment(project_id, projectRoot, rawImages[index], index);
       if (normalized) {
@@ -262,24 +319,48 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       }
     }
 
-    const imageLines = processedImages.map((image, idx) => `Image #${idx + 1} path: ${image.path}`);
-    const finalInstruction = [instructionWithoutLegacyPaths, imageLines.join('\n')]
+    const displayInstruction =
+      instructionWithoutLegacyPaths ||
+      (processedImages.length > 0
+        ? `[Attached ${processedImages.length} image${processedImages.length === 1 ? '' : 's'}]`
+        : '');
+
+    let imageSection = '';
+    if (processedImages.length > 0) {
+      const imageLines = processedImages.map((image) => `- ${image.absolutePath}`);
+      imageSection = [
+        '[The user has attached the following image(s). Use the Read tool to view each file so you can see what they contain:]',
+        ...imageLines,
+      ].join('\n');
+    }
+    const agentInstruction = [instructionWithoutLegacyPaths, imageSection]
       .filter((segment) => segment && segment.trim().length > 0)
       .join('\n\n')
       .trim();
 
-    if (!finalInstruction) {
+    if (!agentInstruction) {
       return NextResponse.json(
         { success: false, error: 'instruction or images are required' },
         { status: 400 },
       );
     }
 
-    const cliPreferenceRaw =
+    const explicitCliPref =
       coerceString((body as Record<string, unknown>).cliPreference) ??
-      coerceString(legacyBody['cli_preference']) ??
-      project.preferredCli ??
-      'claude';
+      coerceString(legacyBody['cli_preference']);
+
+    const conversationId =
+      coerceString(body.conversationId) ?? coerceString(legacyBody['conversation_id']);
+
+    let cliPreferenceRaw: string;
+    if (explicitCliPref) {
+      cliPreferenceRaw = explicitCliPref;
+    } else if (conversationId) {
+      const convPref = await getConversationCliPreference(project_id, conversationId);
+      cliPreferenceRaw = convPref?.preferredCli ?? project.preferredCli ?? 'claude';
+    } else {
+      cliPreferenceRaw = project.preferredCli ?? 'claude';
+    }
     const cliPreference = cliPreferenceRaw.toLowerCase();
 
     const selectedModelRaw =
@@ -288,9 +369,6 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       project.selectedModel ??
       getDefaultModelForCli(cliPreference);
     const selectedModel = normalizeModelId(cliPreference, selectedModelRaw);
-
-    const conversationId =
-      coerceString(body.conversationId) ?? coerceString(legacyBody['conversation_id']);
 
     const requestId =
       coerceString(body.requestId) ??
@@ -326,7 +404,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       projectId: project_id,
       role: 'user',
       messageType: 'chat',
-      content: finalInstruction,
+      content: displayInstruction,
       conversationId: conversationId ?? undefined,
       cliSource: cliPreference,
       metadata,
@@ -344,15 +422,12 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
     if (requestId) {
       try {
-        const storedInstruction =
-          rawInstruction && rawInstruction.trim().length > 0
-            ? rawInstruction.trim()
-            : instructionWithoutLegacyPaths || finalInstruction;
+        const storedInstruction = displayInstruction || agentInstruction;
 
         await upsertUserRequest({
           id: requestId,
           projectId: project_id,
-          instruction: storedInstruction || finalInstruction,
+          instruction: storedInstruction,
           cliPreference,
         });
         await markUserRequestAsProcessing(requestId);
@@ -368,7 +443,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
     await updateProjectActivity(project_id);
 
-    const projectPath = project.repoPath || path.join(process.cwd(), 'projects', project_id);
+    const projectPath = projectRoot;
 
     const existingSelected = normalizeModelId(project.preferredCli ?? 'claude', project.selectedModel ?? undefined);
 
@@ -383,6 +458,18 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         });
       } catch (error) {
         console.error('[API] Failed to persist project CLI/model settings:', error);
+      }
+    }
+
+    // Persist conversation-level CLI preference when user explicitly switches
+    if (conversationId && explicitCliPref) {
+      try {
+        await setConversationCliPreference(project_id, conversationId, {
+          preferredCli: cliPreference,
+          selectedModel,
+        });
+      } catch (error) {
+        console.error('[API] Failed to persist conversation CLI preference:', error);
       }
     }
 
@@ -412,7 +499,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       executor(
         project_id,
         projectPath,
-        finalInstruction,
+        agentInstruction,
         selectedModel,
         requestId,
       ).catch((error) => {
@@ -440,7 +527,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       executor(
         project_id,
         projectPath,
-        finalInstruction,
+        agentInstruction,
         selectedModel,
         sessionId,
         requestId,

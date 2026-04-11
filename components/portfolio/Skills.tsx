@@ -7,21 +7,28 @@ interface SkillCategory {
 
 const skillCategories: SkillCategory[] = [
   {
-    name: 'Frontend',
-    skills: ['React', 'Next.js', 'TypeScript', 'Tailwind CSS', 'Vue.js', 'HTML/CSS'],
+    name: 'Supported Agents',
+    skills: ['Claude Code', 'Codex CLI', 'Cursor CLI', 'Qwen Code', 'Z.AI GLM'],
   },
   {
-    name: 'Backend',
-    skills: ['Node.js', 'Express', 'Python', 'PostgreSQL', 'MongoDB', 'Firebase'],
+    name: 'Workspace Loop',
+    skills: ['Chat mode', 'Act mode', 'Live preview', 'File tree', 'Route controls', 'Request tracking'],
   },
   {
-    name: 'Tools & Tech',
-    skills: ['Git', 'Docker', 'AWS', 'GraphQL', 'REST APIs', 'Webpack'],
+    name: 'Shipping Hooks',
+    skills: ['GitHub integration', 'Vercel deployment', 'Environment settings', 'Electron packaging', 'Preview server', 'Project settings'],
   },
   {
-    name: 'Design',
-    skills: ['Figma', 'UI/UX', 'Responsive Design', 'Accessibility', 'Animation', 'Prototyping'],
+    name: 'Data & Config',
+    skills: ['Supabase', 'Prisma schema', 'Local project storage', 'Service tokens', 'Global settings', 'Per-project env vars'],
   },
+]
+
+const capabilityStats = [
+  { value: '5', label: 'Supported CLI agents' },
+  { value: 'Live', label: 'Preview feedback loop' },
+  { value: 'Browser + desktop', label: 'Ways to run termstack' },
+  { value: '1 workspace', label: 'Shared chat, files, and preview context' },
 ]
 
 const Skills = () => {
@@ -29,15 +36,13 @@ const Skills = () => {
     <section id="skills" className="section">
       <div className="max-w-6xl mx-auto">
         <div className="space-y-12">
-          {/* Section Header */}
           <div className="space-y-2">
-            <h2 className="text-4xl md:text-5xl font-bold">Skills & Expertise</h2>
+            <h2 className="text-4xl md:text-5xl font-bold">Capabilities</h2>
             <p className="text-slate-400 text-lg max-w-2xl">
-              Proficient in modern web technologies and best practices for building scalable applications
+              termstack keeps the agent, the codebase, and the preview connected so you can review real changes instead of mock output.
             </p>
           </div>
 
-          {/* Skills Grid */}
           <div className="grid md:grid-cols-2 gap-8">
             {skillCategories.map((category) => (
               <div key={category.name} className="space-y-4">
@@ -56,31 +61,14 @@ const Skills = () => {
             ))}
           </div>
 
-          {/* Proficiency Bars */}
-          <div className="space-y-8">
-            <h3 className="text-2xl font-bold text-slate-100">Proficiency</h3>
-            <div className="space-y-6">
-              {[
-                { label: 'React & Next.js', percentage: 95 },
-                { label: 'TypeScript', percentage: 90 },
-                { label: 'Full-Stack Development', percentage: 88 },
-                { label: 'UI/UX Design', percentage: 82 },
-              ].map((item) => (
-                <div key={item.label} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <p className="text-slate-300 font-medium">{item.label}</p>
-                    <p className="text-slate-400 text-sm">{item.percentage}%</p>
-                  </div>
-                  <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${item.percentage}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+          <div className="grid md:grid-cols-4 gap-4">
+            {capabilityStats.map((stat) => (
+              <div key={stat.label} className="card text-center">
+                <p className="text-2xl font-bold gradient-text">{stat.value}</p>
+                <p className="text-slate-400 pt-2 text-sm leading-relaxed">{stat.label}</p>
+              </div>
+            ))}
             </div>
-          </div>
         </div>
       </div>
     </section>

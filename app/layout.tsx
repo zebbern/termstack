@@ -1,11 +1,12 @@
 import './globals.css'
 import { Metadata } from 'next'
+import GlobalSettingsProvider from '@/contexts/GlobalSettingsContext'
 
 export const metadata: Metadata = {
-  title: 'Portfolio | Dark Theme',
-  description: 'A beautiful dark theme portfolio showcasing projects and skills',
+  title: 'termstack | AI-powered app builder',
+  description: 'Connect a supported coding CLI, build in a live Next.js workspace, and ship with preview-first feedback.',
   icons: {
-    icon: '/favicon.ico',
+    icon: '/favicon.png',
   },
 }
 
@@ -13,16 +14,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head />
-      <body className="bg-slate-950 text-slate-50 min-h-screen">
-        <div className="relative">
-          {/* Animated background gradient */}
-          <div className="fixed inset-0 -z-10 overflow-hidden">
-            <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-            <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-            <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+      <body className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
+        <GlobalSettingsProvider>
+          <div className="relative min-h-screen">
+            <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(89,214,163,0.1),_transparent_32%)]" />
+              <div
+                className="absolute inset-0 opacity-30"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
+                  backgroundSize: '28px 28px',
+                  maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.85), transparent 92%)',
+                }}
+              />
+            </div>
+            <main className="relative z-10 min-h-screen">{children}</main>
           </div>
-          <main className="relative z-10">{children}</main>
-        </div>
+        </GlobalSettingsProvider>
       </body>
     </html>
   )

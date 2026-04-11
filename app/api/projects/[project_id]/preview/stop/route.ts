@@ -3,8 +3,9 @@
  * Stops the development server for the project if it is running.
  */
 
-import { NextResponse } from 'next/server';
 import { previewManager } from '@/lib/services/preview';
+import { getProjectById } from '@/lib/services/project';
+import { createSuccessResponse, createErrorResponse, handleApiError } from '@/lib/utils/api-response';
 
 interface RouteContext {
   params: Promise<{ project_id: string }>;
@@ -16,22 +17,20 @@ export async function POST(
 ) {
   try {
     const { project_id } = await params;
-    const preview = await previewManager.stop(project_id);
 
-    return NextResponse.json({
-      success: true,
-      data: preview,
-    });
+    if (!project_id || typeof project_id !== 'string' || !project_id.trim()) {
+      return createErrorResponse('project_id is required', undefined, 400);
+    }
+
+    const project = await getProjectById(project_id);
+    if (!project) {
+      return createErrorResponse('Project not found', undefined, 404);
+    }
+
+    const preview = await previewManager.stop(project_id);
+    return createSuccessResponse(preview);
   } catch (error) {
-    console.error('[API] Failed to stop preview:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error ? error.message : 'Failed to stop preview',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, 'API', 'Failed to stop preview');
   }
 }
 
