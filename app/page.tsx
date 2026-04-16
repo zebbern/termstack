@@ -531,7 +531,7 @@ export default function HomePage() {
                     </p>
                   </div>
 
-                  <div className="mx-auto mt-6 max-w-xl overflow-x-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
+                  <div className="mx-auto mt-6 max-w-xl overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
                     <div className="border-b border-[var(--app-border)] px-4 py-3">
                       <textarea
                         ref={textareaRef}
