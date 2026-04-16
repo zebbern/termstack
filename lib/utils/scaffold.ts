@@ -521,4 +521,106 @@ alwaysApply: true
 - Never share a guessed preview URL. Read NEXT_PUBLIC_APP_URL from .env or project metadata.
 `
   );
+
+  // Claude Code skills — active capabilities, not just passive rules
+  await writeFileIfMissing(
+    path.join(projectPath, '.claude/skills/add-dependency/SKILL.md'),
+    `---
+name: add-dependency
+description: How to properly add npm dependencies in a TermStack project. NEVER run npm/yarn/pnpm directly.
+---
+
+# Adding Dependencies in TermStack
+
+## The Rule
+
+You MUST NEVER run npm install, yarn add, pnpm add, or bun add in a TermStack project.
+The platform manages package installation automatically.
+
+## The Correct Process
+
+1. Read the current package.json to understand existing dependencies.
+2. Edit package.json to add your dependency with the correct version:
+   - Add to "dependencies" for runtime packages.
+   - Add to "devDependencies" for build/dev-only packages.
+3. Save the file — the platform detects the change and installs automatically.
+4. Verify — read package.json back to confirm your edit was saved.
+
+## Version Pinning Rules
+
+- Use caret (^) prefix for most packages (e.g., "lodash": "^4.17.21").
+- For Tailwind CSS specifically, use exact versions:
+  - "tailwindcss": "3.4.17"
+  - "postcss": "8.4.49"
+  - "autoprefixer": "10.4.20"
+
+## Example — Adding axios
+
+Edit package.json, adding to the "dependencies" object:
+
+  "axios": "^1.7.0"
+
+Then save. The platform handles the rest.
+
+## Common Mistakes
+
+- Running npm install <package> — BLOCKED by platform.
+- Running yarn add <package> — BLOCKED by platform.
+- Running npx create-... — BLOCKED by platform.
+- Forgetting to use a valid semver range — causes install failures.
+- Adding to wrong section (devDependencies vs dependencies).
+`
+  );
+
+  await writeFileIfMissing(
+    path.join(projectPath, '.claude/skills/check-preview/SKILL.md'),
+    `---
+name: check-preview
+description: How to verify the TermStack preview is running and showing your changes correctly.
+---
+
+# Checking Preview Status in TermStack
+
+## Overview
+
+The TermStack platform manages a Next.js dev server for your project. You cannot start,
+stop, or restart it yourself. But you CAN verify your code is correct.
+
+## How to Verify Your Changes
+
+1. Read back every file you modified — confirm the content is what you intended.
+2. Check for common error patterns:
+   - Missing or incorrect imports.
+   - TypeScript type errors (missing types, wrong argument counts).
+   - Invalid JSX syntax (unclosed tags, wrong attribute names).
+   - Referencing variables or functions that do not exist.
+   - Missing dependencies in package.json for imported packages.
+3. If you added a dependency, confirm it is in package.json with a valid version.
+4. Read .env or project metadata for NEXT_PUBLIC_APP_URL to know the correct preview URL.
+
+## What You CANNOT Do
+
+- Run next dev, next build, or next start.
+- Check localhost:3000 (platform uses ports 3100–3999).
+- Start, stop, or restart the dev server.
+- Access dev server logs directly.
+
+## What You CAN Do
+
+- Read and modify source files.
+- Read .env for the correct preview URL.
+- Read back files to verify changes were saved.
+- Fix errors in your code proactively before claiming done.
+
+## Fixing Preview Errors
+
+If the user reports the preview is broken after your changes:
+
+1. Re-read every file you touched — look for syntax errors.
+2. Check that all imports resolve to real files or installed packages.
+3. Verify TypeScript types are correct (no any-casts hiding real errors).
+4. Check app/layout.tsx — a broken layout breaks every page.
+5. If you added a dependency, verify the version exists on npm.
+`
+  );
 }
