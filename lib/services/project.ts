@@ -54,15 +54,47 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
   // Fetch DESIGN.md via getdesign CLI if a design template was selected
   if (input.designTemplate) {
     const brand = input.designTemplate.replace(/[^a-zA-Z0-9._-]/g, '');
-    try {
-      execSync(`npx getdesign@latest add ${brand}`, {
-        cwd: projectPath,
-        timeout: 30_000,
-        stdio: 'pipe',
-      });
-      console.log(`[ProjectService] DESIGN.md fetched for brand: ${brand}`);
-    } catch (designError) {
-      console.warn(`[ProjectService] Failed to fetch DESIGN.md for "${brand}" — project creation continues:`, designError);
+    if (brand) {
+      try {
+        // getdesign CLI walks up directories to find package.json as "root".
+        // Without an anchor, it writes DESIGN.md to the TermStack repo root.
+        const anchorPath = path.join(projectPath, 'package.json');
+        try { await fs.access(anchorPath); } catch {
+          await fs.writeFile(anchorPath, '{"name":"project","version":"0.0.1"}');
+        }
+
+        const result = execSync(`npx --yes getdesign@latest add ${brand}`, {
+          cwd: projectPath,
+          timeout: 60_000,
+          stdio: 'pipe',
+          shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
+          env: { ...process.env, npm_config_yes: 'true' },
+        });
+        const output = result.toString().trim();
+        console.log(`[ProjectService] getdesign output for "${brand}":`, output.slice(-200));
+
+        // Verify DESIGN.md was actually created
+        const designPath = path.join(projectPath, 'DESIGN.md');
+        try {
+          await fs.access(designPath);
+          console.log(`[ProjectService] ✓ DESIGN.md created at ${designPath}`);
+        } catch {
+          // getdesign may put it in a subdirectory — move it to root
+          const subPath = path.join(projectPath, brand, 'DESIGN.md');
+          try {
+            await fs.access(subPath);
+            await fs.rename(subPath, designPath);
+            await fs.rmdir(path.join(projectPath, brand)).catch(() => {});
+            console.log(`[ProjectService] ✓ DESIGN.md moved from ${brand}/ to root`);
+          } catch {
+            console.warn(`[ProjectService] DESIGN.md not found at root or ${brand}/ after getdesign`);
+          }
+        }
+      } catch (designError: unknown) {
+        const err = designError as { stderr?: Buffer; message?: string };
+        const stderr = err.stderr ? err.stderr.toString().slice(-500) : '';
+        console.warn(`[ProjectService] getdesign failed for "${brand}": ${err.message || 'unknown'}${stderr ? `\nstderr: ${stderr}` : ''}`);
+      }
     }
   }
 
