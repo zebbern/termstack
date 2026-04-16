@@ -94,7 +94,7 @@ export default function DesignPicker({ value, onChange, designs, categories }: D
         createPortal(
           <div
             ref={panelRef}
-            className="fixed z-[9999] max-h-72 w-60 overflow-y-auto rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] shadow-xl"
+            className="fixed z-[9999] max-h-72 w-60 overflow-y-auto rounded-lg border border-[var(--app-border)] bg-[#1c1f26] shadow-2xl backdrop-blur-none"
             style={{
               top: panelPos.top,
               left: panelPos.left,
