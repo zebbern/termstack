@@ -532,7 +532,7 @@ export default function HomePage() {
                     </p>
                   </div>
 
-                  <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
+                  <div className="mx-auto mt-6 max-w-xl overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
                     <div className="border-b border-[var(--app-border)] px-4 py-3">
                       <textarea
                         ref={textareaRef}
@@ -551,7 +551,7 @@ export default function HomePage() {
                     </div>
 
                     <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+                      <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
                         <select
                           value={selectedCli}
                           onChange={(event) => {
@@ -564,7 +564,7 @@ export default function HomePage() {
                               ),
                             );
                           }}
-                          className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-sm text-[var(--app-text)] outline-none"
+                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-sm text-[var(--app-text)] outline-none"
                         >
                           {cliOptions.map((option) => (
                             <option key={option.id} value={option.id} disabled={!option.available}>
@@ -576,7 +576,7 @@ export default function HomePage() {
                         <select
                           value={selectedModel}
                           onChange={(event) => setSelectedModel(event.target.value)}
-                          className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-sm text-[var(--app-text)] outline-none"
+                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-sm text-[var(--app-text)] outline-none"
                           disabled={isLoadingConfig}
                         >
                           {modelOptions.map((option) => (
@@ -589,7 +589,7 @@ export default function HomePage() {
                         <select
                           value={selectedDesign}
                           onChange={(event) => setSelectedDesign(event.target.value)}
-                          className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-sm text-[var(--app-text)] outline-none"
+                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-sm text-[var(--app-text)] outline-none"
                         >
                           <option value="">No design template</option>
                           {DESIGN_CATEGORIES.map((category) => (
