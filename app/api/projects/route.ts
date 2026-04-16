@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       initialPrompt: body.initialPrompt || body.initial_prompt,
       preferredCli,
       selectedModel: normalizeModelId(preferredCli, requestedModel ?? getDefaultModelForCli(preferredCli)),
+      designTemplate: body.designTemplate || body.design_template || undefined,
       description: body.description,
     };
 

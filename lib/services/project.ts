@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db/client';
 import type { Project, CreateProjectInput, UpdateProjectInput } from '@/types/backend';
 import fs from 'fs/promises';
 import path from 'path';
+import { execSync } from 'child_process';
 import { normalizeModelId, getDefaultModelForCli } from '@/lib/constants/cliModels';
 
 const PROJECTS_DIR = process.env.PROJECTS_DIR || './data/projects';
@@ -50,6 +51,21 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
   const projectPath = path.join(PROJECTS_DIR_ABSOLUTE, input.project_id);
   await fs.mkdir(projectPath, { recursive: true });
 
+  // Fetch DESIGN.md via getdesign CLI if a design template was selected
+  if (input.designTemplate) {
+    const brand = input.designTemplate.replace(/[^a-zA-Z0-9._-]/g, '');
+    try {
+      execSync(`npx getdesign@latest add ${brand}`, {
+        cwd: projectPath,
+        timeout: 30_000,
+        stdio: 'pipe',
+      });
+      console.log(`[ProjectService] DESIGN.md fetched for brand: ${brand}`);
+    } catch (designError) {
+      console.warn(`[ProjectService] Failed to fetch DESIGN.md for "${brand}" — project creation continues:`, designError);
+    }
+  }
+
   // Create project in database
   const project = await prisma.project.create({
     data: {
@@ -60,6 +76,7 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
       repoPath: projectPath,
       preferredCli: input.preferredCli || 'claude',
       selectedModel: normalizeModelId(input.preferredCli || 'claude', input.selectedModel ?? getDefaultModelForCli(input.preferredCli || 'claude')),
+      designTemplate: input.designTemplate || null,
       status: 'idle',
       templateType: 'nextjs',
       lastActiveAt: new Date(),

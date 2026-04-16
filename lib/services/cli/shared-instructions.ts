@@ -22,4 +22,5 @@ export const PLATFORM_RULES = `- This is an implementation task. Make the requir
 - Never override ports or start your own development server processes. The managed preview service assigns ports from the approved pool (3100-3999).
 - When sharing a preview link, read NEXT_PUBLIC_APP_URL from .env or project metadata instead of assuming a port.
 - Before claiming something is finished, verify the key files you changed by reading them back.
-- Never claim a feature is built or running unless you actually changed the project files in this workspace.`;
+- Never claim a feature is built or running unless you actually changed the project files in this workspace.
+- If a DESIGN.md file exists in the project root, read it before writing any UI code. Follow its color palette, typography, component styles, spacing, and layout principles exactly. DESIGN.md is the authoritative design system for this project.`;

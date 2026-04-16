@@ -9,6 +9,7 @@ import {
   Layers3,
   Loader2,
   Menu,
+  Palette,
   Plus,
   RefreshCw,
   Search,
@@ -24,6 +25,9 @@ import { fetchCliStatusSnapshot } from '@/hooks/useCLI';
 import DeleteProjectModal from '@/components/modals/DeleteProjectModal';
 import { ProjectSettings } from '@/components/settings/ProjectSettings';
 import type { Project } from '@/types/client/project';
+import { DESIGN_CATALOG, DESIGN_CATEGORIES, getDesignsByCategory } from '@/data/design-catalog';
+
+const designsByCategory = getDesignsByCategory();
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
 
@@ -132,6 +136,7 @@ export default function HomePage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const [selectedDesign, setSelectedDesign] = useState('');
 
   const loadProjects = useCallback(async () => {
     setIsLoadingProjects(true);
@@ -297,6 +302,7 @@ export default function HomePage() {
           initialPrompt: prompt,
           preferredCli: selectedCli,
           selectedModel,
+          designTemplate: selectedDesign || undefined,
         }),
       });
 
@@ -314,7 +320,7 @@ export default function HomePage() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [composerPrompt, isSubmitting, loadProjects, router, selectedCli, selectedModel]);
+  }, [composerPrompt, isSubmitting, loadProjects, router, selectedCli, selectedModel, selectedDesign]);
 
   const handleDeleteProject = useCallback(async () => {
     if (!deleteTarget) {
@@ -577,6 +583,23 @@ export default function HomePage() {
                             <option key={option.id} value={option.id}>
                               {option.name}
                             </option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={selectedDesign}
+                          onChange={(event) => setSelectedDesign(event.target.value)}
+                          className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-sm text-[var(--app-text)] outline-none"
+                        >
+                          <option value="">No design template</option>
+                          {DESIGN_CATEGORIES.map((category) => (
+                            <optgroup key={category} label={category}>
+                              {(designsByCategory[category] ?? []).map((tmpl) => (
+                                <option key={tmpl.id} value={tmpl.id}>
+                                  {tmpl.name}
+                                </option>
+                              ))}
+                            </optgroup>
                           ))}
                         </select>
                       </div>

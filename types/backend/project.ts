@@ -23,6 +23,7 @@ export interface Project {
   activeCursorSessionId?: string;
   preferredCli?: string;
   selectedModel?: string;
+  designTemplate?: string;
   fallbackEnabled: boolean;
   settings?: string; // JSON string
   createdAt: Date;
@@ -36,6 +37,7 @@ export interface CreateProjectInput {
   initialPrompt: string;
   preferredCli?: string;
   selectedModel?: string;
+  designTemplate?: string;
   description?: string;
 }
 
@@ -50,6 +52,7 @@ export interface UpdateProjectInput {
   previewPort?: number | null;
   preferredCli?: string;
   selectedModel?: string;
+  designTemplate?: string;
   settings?: string;
   activeClaudeSessionId?: string;
   activeCursorSessionId?: string;

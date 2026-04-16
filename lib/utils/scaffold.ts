@@ -1039,4 +1039,49 @@ You are the TermStack development agent. Your job is to implement features by mo
 - Use TypeScript strictly — no any-casts
 `
   );
+
+  // Design system rules — generated only when DESIGN.md exists in the project
+  const designMdPath = path.join(projectPath, 'DESIGN.md');
+  try {
+    await fs.access(designMdPath);
+    await writeFileIfMissing(
+      path.join(projectPath, '.claude/rules/design.md'),
+      `---
+description: Design system rules — active when DESIGN.md is present
+paths:
+  - "**/*.tsx"
+  - "**/*.jsx"
+  - "**/*.css"
+  - "**/*.ts"
+---
+
+# Design System — DESIGN.md
+
+A DESIGN.md file exists in this project root. It is the **authoritative design system** for this project.
+
+## Required Workflow
+
+1. **Read DESIGN.md first** before writing any UI code.
+2. Extract the exact color palette, typography, spacing scale, and component styles.
+3. Apply them consistently across every component.
+
+## Rules
+
+- Use the exact hex/RGB/HSL values from DESIGN.md — never approximate.
+- Match the font families, sizes, and weights specified.
+- Follow the spacing scale (padding, margin, gap) from DESIGN.md.
+- Use the component patterns (buttons, cards, inputs, navigation) described in DESIGN.md.
+- If DESIGN.md specifies a dark mode palette, implement dark mode support.
+- If DESIGN.md references a specific border-radius, shadow, or animation style, use it exactly.
+
+## Do NOT
+
+- Invent your own color palette or typography when DESIGN.md provides one.
+- Use generic Tailwind defaults (e.g., \`bg-blue-500\`) when DESIGN.md specifies brand colors.
+- Ignore the design system "because it's faster" — visual consistency is a hard requirement.
+`
+    );
+  } catch {
+    // No DESIGN.md — skip design rules generation (expected for projects without a design template)
+  }
 }

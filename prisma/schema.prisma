@@ -21,6 +21,7 @@ model Project {
   activeCursorSessionId String?                    @map("active_cursor_session_id")
   preferredCli          String?                    @map("preferred_cli")
   selectedModel         String?                    @map("selected_model")
+  designTemplate        String?                    @map("design_template")
   fallbackEnabled       Boolean                    @default(false) @map("fallback_enabled")
   settings              String?
   createdAt             DateTime                   @default(now()) @map("created_at")
