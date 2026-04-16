@@ -14,7 +14,7 @@ import { CLAUDE_DEFAULT_MODEL, normalizeClaudeModelId, getClaudeModelDisplayName
 import path from 'path';
 import fs from 'fs/promises';
 import { randomUUID } from 'crypto';
-import { previewManager } from '../preview';
+import { previewManager, PreviewDiagnosticError } from '../preview';
 import {
   markUserRequestAsRunning,
   markUserRequestAsCompleted,
@@ -595,14 +595,17 @@ const handleToolPlaceholderMessage = async (
   placeholderText: string,
   requestId: string | undefined,
   baseMetadata?: Record<string, unknown>,
-  options?: { dedupeStore?: Set<string> }
+  options?: { dedupeStore?: Set<string>; transformMetadata?: (m: Record<string, unknown>) => Record<string, unknown> }
 ): Promise<boolean> => {
   const details = parseToolPlaceholderText(placeholderText);
   if (!details) {
     return false;
   }
 
-  const metadata = mergeMetadata(baseMetadata, buildMetadataFromPlaceholder(details));
+  let metadata = mergeMetadata(baseMetadata, buildMetadataFromPlaceholder(details));
+  if (options?.transformMetadata) {
+    metadata = options.transformMetadata(metadata);
+  }
   const content = createToolMessageContent(details);
   const messageType: 'tool_use' | 'tool_result' = details.isResult ? 'tool_result' : 'tool_use';
   const signature = computeToolMessageSignature(metadata, content, messageType);
@@ -868,6 +871,23 @@ export async function executeClaude(
 
     const snapshotBefore = await collectProjectSnapshot(absoluteProjectPath);
 
+    // Helper: strip the project base path from tool metadata filePaths so the
+    // chat UI displays clean project-relative paths (e.g. "/app/page.tsx"
+    // instead of "/data/projects/93e48839-.../app/page.tsx").
+    const projectPrefix = absoluteProjectPath.replace(/\\/g, '/').replace(/\/+$/, '');
+    const stripProjectPath = (metadata: Record<string, unknown>): Record<string, unknown> => {
+      const fp = metadata.filePath;
+      if (typeof fp === 'string') {
+        const normalized = fp.replace(/\\/g, '/');
+        if (normalized.startsWith(projectPrefix + '/')) {
+          metadata.filePath = normalized.slice(projectPrefix.length);
+        } else if (normalized === projectPrefix) {
+          metadata.filePath = '/';
+        }
+      }
+      return metadata;
+    };
+
     // Send ready notification via SSE
     publishStatus('ready', 'Project verified. Starting AI...');
 
@@ -893,9 +913,32 @@ export async function executeClaude(
           }
         }
 
+        // Enforce project-scoped file access for all file tools
+        const fileToolNames = new Set(['read', 'write', 'edit', 'glob', 'grep', 'list', 'ls']);
+        if (fileToolNames.has(toolName.toLowerCase()) && input && typeof input === 'object') {
+          const inputRecord = input as Record<string, unknown>;
+          const targetPath =
+            (typeof inputRecord.file_path === 'string' && inputRecord.file_path) ||
+            (typeof inputRecord.filePath === 'string' && inputRecord.filePath) ||
+            (typeof inputRecord.path === 'string' && inputRecord.path) ||
+            (typeof inputRecord.directory === 'string' && inputRecord.directory);
+          if (targetPath && path.isAbsolute(targetPath)) {
+            const resolved = path.resolve(targetPath);
+            const rel = path.relative(absoluteProjectPath, resolved);
+            if (rel.startsWith('..') || path.isAbsolute(rel)) {
+              return {
+                behavior: 'deny',
+                message: `File operations are restricted to this project directory. "${targetPath}" is outside the project scope.`,
+              };
+            }
+          }
+        }
+
         return { behavior: 'allow' };
       },
       systemPrompt: `You are an expert web developer building a Next.js application.
+Your project directory is: ${absoluteProjectPath}
+All file operations are scoped to this directory. You are already in the correct project — do not search for or navigate to parent directories or other projects. Use only relative paths from the project root.
 - This is an implementation task. You must make the required file changes in the current working directory before claiming completion.
 - Use Next.js 15 App Router
 - Use TypeScript
@@ -967,7 +1010,7 @@ export async function executeClaude(
           case 'content_block_start': {
             const contentBlock = event.content_block;
             if (contentBlock && typeof contentBlock === 'object' && contentBlock.type === 'tool_use') {
-              const metadata = buildToolMetadata(contentBlock as Record<string, unknown>);
+              const metadata = stripProjectPath(buildToolMetadata(contentBlock as Record<string, unknown>));
               await dispatchToolMessage({
                 projectId,
                 metadata,
@@ -1032,7 +1075,7 @@ export async function executeClaude(
                     trimmedContent,
                     requestId,
                     undefined,
-                    { dedupeStore: persistedToolMessageSignatures }
+                    { dedupeStore: persistedToolMessageSignatures, transformMetadata: stripProjectPath }
                   );
                 } catch (error) {
                   console.error('[ClaudeService] Failed to handle streaming tool placeholder:', error);
@@ -1077,7 +1120,7 @@ export async function executeClaude(
                       trimmedContent,
                       requestId,
                       undefined,
-                      { dedupeStore: persistedToolMessageSignatures }
+                      { dedupeStore: persistedToolMessageSignatures, transformMetadata: stripProjectPath }
                     );
                   } catch (error) {
                     console.error('[ClaudeService] Failed to handle tool placeholder on stop:', error);
@@ -1198,7 +1241,7 @@ export async function executeClaude(
                       trimmed,
                       requestId,
                       undefined,
-                      { dedupeStore: persistedToolMessageSignatures }
+                      { dedupeStore: persistedToolMessageSignatures, transformMetadata: stripProjectPath }
                     );
                   } catch (error) {
                     console.error('[ClaudeService] Failed to handle assistant tool placeholder:', error);
@@ -1212,7 +1255,7 @@ export async function executeClaude(
             }
 
             if (safeBlock.type === 'tool_use') {
-              const metadata = buildToolMetadata(safeBlock as Record<string, unknown>);
+              const metadata = stripProjectPath(buildToolMetadata(safeBlock as Record<string, unknown>));
               const name = typeof safeBlock.name === 'string' ? safeBlock.name : pickFirstString(safeBlock.name);
               const toolContent = `Using tool: ${name ?? 'tool'}`;
               await dispatchToolMessage({
@@ -1296,7 +1339,25 @@ export async function executeClaude(
       if (previewStatus.status !== 'stopped') {
         await previewManager.stop(projectId);
       }
-      await previewManager.start(projectId);
+      try {
+        await previewManager.start(projectId);
+      } catch (previewError) {
+        if (previewError instanceof PreviewDiagnosticError) {
+          const diagMessage = previewError.diagnostic.message;
+          const diagDetail = previewError.diagnostic.detail ?? '';
+          console.log(
+            `[ClaudeService] Preview failed after code changes: ${diagMessage}${diagDetail ? ` — ${diagDetail}` : ''}`
+          );
+          publishStatus(
+            'running',
+            `Preview error detected, recovery in progress...`
+          );
+        } else {
+          console.error('[ClaudeService] Preview restart failed:', previewError);
+        }
+        // Don't rethrow — preview failure shouldn't block the Claude response completion
+        // The diagnostic is already published to the UI via publishPreviewEvent in preview.ts
+      }
     }
 
     console.log('[ClaudeService] Streaming completed');
