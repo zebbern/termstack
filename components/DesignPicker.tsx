@@ -74,11 +74,11 @@ export default function DesignPicker({ value, onChange, designs, categories }: D
       >
         {selected ? (
           <>
-            <span className="flex shrink-0 gap-0.5">
+            <span className="flex shrink-0 gap-1">
               {selected.colors.slice(0, 5).map((c, i) => (
                 <span
                   key={i}
-                  className="inline-block h-2.5 w-2.5 rounded-sm border border-white/20"
+                  className="inline-block h-3.5 w-3.5 rounded border border-white/30 shadow-sm"
                   style={{ backgroundColor: c }}
                 />
               ))}
@@ -134,11 +134,11 @@ export default function DesignPicker({ value, onChange, designs, categories }: D
                         setIsOpen(false);
                       }}
                     >
-                      <span className="flex shrink-0 gap-0.5">
+                      <span className="flex shrink-0 gap-1">
                         {tmpl.colors.slice(0, 5).map((c, i) => (
                           <span
                             key={i}
-                            className="inline-block h-3 w-3 rounded-sm border border-white/10"
+                            className="inline-block h-4 w-4 rounded border border-white/25 shadow-sm"
                             style={{ backgroundColor: c }}
                           />
                         ))}
