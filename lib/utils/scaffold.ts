@@ -623,4 +623,126 @@ If the user reports the preview is broken after your changes:
 5. If you added a dependency, verify the version exists on npm.
 `
   );
+
+  // Claude Code project settings — hard enforcement of platform constraints
+  await writeFileIfMissing(
+    path.join(projectPath, '.claude/settings.json'),
+    JSON.stringify({
+      "$schema": "https://json.schemastore.org/claude-code-settings.json",
+      "permissions": {
+        "deny": [
+          "Bash(npm *)",
+          "Bash(yarn *)",
+          "Bash(pnpm *)",
+          "Bash(bun *)",
+          "Bash(npx *)",
+          "Bash(next dev*)",
+          "Bash(next build*)",
+          "Bash(next start*)",
+          "Bash(rm -rf .next*)",
+          "Bash(rm -rf node_modules*)"
+        ]
+      }
+    }, null, 2) + '\n'
+  );
+
+  // Claude Code modular rules — auto-read at session start
+  await writeFileIfMissing(
+    path.join(projectPath, '.claude/rules/platform.md'),
+    `---
+description: TermStack platform constraints — always active
+---
+
+# Platform Rules
+
+## Package Management
+Never run package managers (npm, yarn, pnpm, bun, npx). Edit package.json and the platform installs automatically.
+
+## Dev Server
+Never run next dev, next build, or next start. The platform manages the preview on ports 3100–3999.
+
+## Build Artifacts
+Never delete .next, node_modules, lockfiles, or generated manifests.
+
+## File Organization
+Keep all files in the project root. Use relative paths only.
+
+## Verification
+Read back changed files before claiming done. Never guess preview URLs — read NEXT_PUBLIC_APP_URL.
+`
+  );
+
+  await writeFileIfMissing(
+    path.join(projectPath, '.claude/rules/tailwind.md'),
+    `---
+description: Tailwind CSS v3 rules for TermStack projects
+paths:
+  - "**/*.css"
+  - "**/*.tsx"
+  - "**/*.jsx"
+---
+
+# Tailwind CSS Rules
+
+## Version
+Use Tailwind CSS v3 stack ONLY:
+- tailwindcss@3.4.17
+- postcss@8.4.49
+- autoprefixer@10.4.20
+
+## Syntax
+Use classic v3 directives in globals.css:
+
+${'```'}css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+${'```'}
+
+Do NOT use:
+- @import "tailwindcss" (v4 syntax)
+- @tailwindcss/postcss (v4 plugin)
+- @theme or @layer theme (v4 features)
+`
+  );
+
+  // Claude Code subagent — restricted tool access for safe delegation
+  await writeFileIfMissing(
+    path.join(projectPath, '.claude/agents/termstack-dev.md'),
+    `---
+name: termstack-dev
+description: Implementation agent for TermStack projects. Modifies source files, never runs commands.
+tools:
+  - Read
+  - Edit
+  - Write
+  - MultiEdit
+  - Glob
+  - Grep
+disallowedTools:
+  - Bash
+  - WebFetch
+model: inherit
+maxTurns: 15
+---
+
+You are the TermStack development agent. Your job is to implement features by modifying files.
+
+## What You Can Do
+- Read, create, and edit source files (TSX, TS, CSS, JSON)
+- Search the codebase with Glob and Grep
+- Follow the project rules in CLAUDE.md and .claude/rules/
+
+## What You Cannot Do
+- Run any shell commands (Bash is disallowed)
+- Fetch external URLs
+- Start servers or run package managers
+
+## Working Style
+- Make all requested changes in a single pass
+- Read back files after editing to verify correctness
+- Follow Next.js 15 App Router conventions
+- Use TypeScript strictly — no any-casts
+`
+  );
 }
