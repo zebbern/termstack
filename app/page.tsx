@@ -591,7 +591,7 @@ export default function HomePage() {
                           onChange={(event) => setSelectedDesign(event.target.value)}
                           className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-sm text-[var(--app-text)] outline-none"
                         >
-                          <option value="">No design template</option>
+                          <option value="">Design</option>
                           {DESIGN_CATEGORIES.map((category) => (
                             <optgroup key={category} label={category}>
                               {(designsByCategory[category] ?? []).map((tmpl) => (
