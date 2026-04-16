@@ -2,7 +2,7 @@
  * Path utility functions for displaying file paths in the UI
  */
 
-const PROJECT_PATH_PATTERN = /(?:^|\/)data\/projects\/project-[^/]+\/(.+)$/i;
+const PROJECT_PATH_PATTERN = /(?:^|\/)data\/projects\/[^/]+\/(.+)$/i;
 const ROOT_DIRECTORY_MARKERS = new Set([
   'app',
   'assets',
@@ -123,35 +123,4 @@ export function toRelativePath(absolutePath: string): string {
   return normalizedPath;
 }
 
-/**
- * Extracts the filename from a file path
- *
- * @param path - The file path
- * @returns The filename (last segment of the path)
- *
- * @example
- * getFileName('src/app/page.tsx')
- * // Returns: 'page.tsx'
- */
-export function getFileName(path: string): string {
-  if (!path) return path;
-  const parts = path.split(/[/\\]/); // Handle both / and \ separators
-  return parts[parts.length - 1] || path;
-}
 
-/**
- * Extracts the directory path (without the filename)
- *
- * @param path - The file path
- * @returns The directory path
- *
- * @example
- * getDirectoryPath('src/app/page.tsx')
- * // Returns: 'src/app'
- */
-export function getDirectoryPath(path: string): string {
-  if (!path) return path;
-  const parts = path.split(/[/\\]/); // Handle both / and \ separators
-  parts.pop(); // Remove the filename
-  return parts.join('/') || '/';
-}

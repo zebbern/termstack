@@ -433,4 +433,92 @@ function resolvePort(preferredPort) {
 })();
 `
   );
+
+  // Agent context files — auto-read by Claude Code, Codex, and Cursor on every session
+  await writeFileIfMissing(
+    path.join(projectPath, 'CLAUDE.md'),
+    `# TermStack Project — Agent Rules
+
+## Platform Constraints (never violate)
+
+- Never run npm, yarn, pnpm, or bun commands. Edit package.json instead — the platform installs dependencies automatically.
+- Never run next dev, next build, next start, or any dev-server command. The platform manages the preview process.
+- Never delete or reset .next, node_modules, lockfiles, or generated manifests. They may be in active use.
+- Never override ports or start your own server. The platform assigns ports from the approved pool (3100–3999).
+- Keep all project files in the project root. Do not scaffold into subdirectories.
+- Use only relative paths from the project root.
+
+## Tech Stack
+
+- Next.js 15 App Router + TypeScript (strict)
+- Prefer the existing styling stack. For fresh projects, default to plain CSS or CSS Modules.
+- If adding Tailwind CSS: use v3 stack (tailwindcss@3.4.17 + postcss@8.4.49 + autoprefixer@10.4.20). Use classic @tailwind base/components/utilities directives, NOT @import "tailwindcss" (v4 syntax).
+
+## Verification
+
+- Read back changed files before claiming done.
+- Never claim completion without actually modifying files.
+- Never share a guessed preview URL. Read NEXT_PUBLIC_APP_URL from .env or project metadata.
+`
+  );
+
+  await writeFileIfMissing(
+    path.join(projectPath, 'AGENTS.md'),
+    `# Agent Instructions
+
+## Platform Constraints (never violate)
+
+- Never run npm, yarn, pnpm, or bun commands. Edit package.json instead — the platform installs dependencies automatically.
+- Never run next dev, next build, next start, or any dev-server command. The platform manages the preview process.
+- Never delete or reset .next, node_modules, lockfiles, or generated manifests. They may be in active use.
+- Never override ports or start your own server. The platform assigns ports from the approved pool (3100–3999).
+- Keep all project files in the project root. Do not scaffold into subdirectories.
+- Use only relative paths from the project root.
+
+## Tech Stack
+
+- Next.js 15 App Router + TypeScript (strict)
+- Prefer the existing styling stack. For fresh projects, default to plain CSS or CSS Modules.
+- If adding Tailwind CSS: use v3 stack (tailwindcss@3.4.17 + postcss@8.4.49 + autoprefixer@10.4.20). Use classic @tailwind base/components/utilities directives, NOT @import "tailwindcss" (v4 syntax).
+
+## Verification
+
+- Read back changed files before claiming done.
+- Never claim completion without actually modifying files.
+- Never share a guessed preview URL. Read NEXT_PUBLIC_APP_URL from .env or project metadata.
+`
+  );
+
+  await writeFileIfMissing(
+    path.join(projectPath, '.cursor/rules/termstack.mdc'),
+    `---
+description: TermStack platform rules — apply to all files in this project
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# TermStack Project — Agent Rules
+
+## Platform Constraints (never violate)
+
+- Never run npm, yarn, pnpm, or bun commands. Edit package.json instead — the platform installs dependencies automatically.
+- Never run next dev, next build, next start, or any dev-server command. The platform manages the preview process.
+- Never delete or reset .next, node_modules, lockfiles, or generated manifests. They may be in active use.
+- Never override ports or start your own server. The platform assigns ports from the approved pool (3100–3999).
+- Keep all project files in the project root. Do not scaffold into subdirectories.
+- Use only relative paths from the project root.
+
+## Tech Stack
+
+- Next.js 15 App Router + TypeScript (strict)
+- Prefer the existing styling stack. For fresh projects, default to plain CSS or CSS Modules.
+- If adding Tailwind CSS: use v3 stack (tailwindcss@3.4.17 + postcss@8.4.49 + autoprefixer@10.4.20). Use classic @tailwind base/components/utilities directives, NOT @import "tailwindcss" (v4 syntax).
+
+## Verification
+
+- Read back changed files before claiming done.
+- Never claim completion without actually modifying files.
+- Never share a guessed preview URL. Read NEXT_PUBLIC_APP_URL from .env or project metadata.
+`
+  );
 }

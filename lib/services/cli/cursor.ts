@@ -61,9 +61,11 @@ const STATUS_LABELS: Record<string, string> = {
   completed: 'Cursor Agent execution finished',
 };
 
-const AUTO_INSTRUCTIONS = `Act autonomously to complete the task without asking for confirmations.
-Work directly inside the provided project directory. Do not create additional top-level folders unless explicitly requested.
-Keep responses concise and focus on the code or command outputs that unblock the user.`;
+import { PLATFORM_RULES } from './shared-instructions';
+
+const AUTO_INSTRUCTIONS = `${PLATFORM_RULES}
+- Act autonomously to complete the task without asking for confirmations.
+- Platform rules are also active in .cursor/rules/termstack.mdc in the project.`;
 
 function publishStatus(projectId: string, status: keyof typeof STATUS_LABELS, requestId?: string, message?: string) {
   streamManager.publish(projectId, {

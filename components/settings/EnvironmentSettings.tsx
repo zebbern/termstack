@@ -114,21 +114,21 @@ export function EnvironmentSettings({ projectId }: EnvironmentSettingsProps) {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+        <h3 className="text-lg font-medium text-[var(--app-text)] mb-4">
           Environment Variables
         </h3>
 
         {/* Variables List */}
         <div className="space-y-2 mb-6">
           {isLoading ? (
-            <div className="text-gray-500">Loading...</div>
+            <div className="text-[var(--app-muted)]">Loading...</div>
           ) : variables.length === 0 ? (
-            <div className="text-gray-500 text-sm">No environment variables configured</div>
+            <div className="text-[var(--app-muted)] text-sm">No environment variables configured</div>
           ) : (
             variables.map((variable, index) => (
               <div
                 key={index}
-                className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg"
+                className="flex items-center gap-2 p-3 bg-[var(--app-surface)] rounded-lg border border-[var(--app-border)]"
               >
                 {editingIndex === index ? (
                   <>
@@ -140,7 +140,7 @@ export function EnvironmentSettings({ projectId }: EnvironmentSettingsProps) {
                         updated[index] = { ...variable, key: e.target.value };
                         setVariables(updated);
                       }}
-                      className="flex-1 px-2 py-1 border border-gray-300 rounded "
+                      className="flex-1 px-2 py-1 border border-[var(--app-border)] rounded bg-[var(--app-surface-2)] text-[var(--app-text)]"
                     />
                     <input
                       type={variable.isSecret ? 'password' : 'text'}
@@ -150,7 +150,7 @@ export function EnvironmentSettings({ projectId }: EnvironmentSettingsProps) {
                         updated[index] = { ...variable, value: e.target.value };
                         setVariables(updated);
                       }}
-                      className="flex-1 px-2 py-1 border border-gray-300 rounded "
+                      className="flex-1 px-2 py-1 border border-[var(--app-border)] rounded bg-[var(--app-surface-2)] text-[var(--app-text)]"
                     />
                     <button
                       onClick={() => handleUpdate(index, variable)}
@@ -160,31 +160,31 @@ export function EnvironmentSettings({ projectId }: EnvironmentSettingsProps) {
                     </button>
                     <button
                       onClick={() => setEditingIndex(null)}
-                      className="px-3 py-1 text-sm bg-gray-400 text-white rounded hover:bg-gray-500"
+                      className="px-3 py-1 text-sm bg-[var(--app-surface-2)] text-[var(--app-muted)] rounded hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--app-text)]"
                     >
                       Cancel
                     </button>
                   </>
                 ) : (
                   <>
-                    <span className="font-mono text-sm text-gray-700 ">
+                    <span className="font-mono text-sm text-[var(--app-text)]">
                       {variable.key}
                     </span>
-                    <span className="text-gray-400">=</span>
-                    <span className="flex-1 font-mono text-sm text-gray-600 ">
+                    <span className="text-[var(--app-muted)]">=</span>
+                    <span className="flex-1 font-mono text-sm text-[var(--app-muted)]">
                       {variable.isSecret ? '••••••••' : variable.value}
                     </span>
                     {variable.isSecret && (
-                      <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded">
+                      <span className="text-xs px-2 py-1 bg-yellow-900/30 text-yellow-400 rounded">
                         Secret
                       </span>
                     )}
                     <button
                       onClick={() => setEditingIndex(index)}
-                      className="p-1 text-gray-400 hover:text-gray-600 "
+                      className="p-1 text-[var(--app-muted)] hover:text-[var(--app-text)]"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                               d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
@@ -193,7 +193,7 @@ export function EnvironmentSettings({ projectId }: EnvironmentSettingsProps) {
                       className="p-1 text-red-400 hover:text-red-600"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                               d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
@@ -205,8 +205,8 @@ export function EnvironmentSettings({ projectId }: EnvironmentSettingsProps) {
         </div>
 
         {/* Add New Variable */}
-        <div className="border-t border-gray-200 pt-6">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">
+        <div className="border-t border-[var(--app-border)] pt-6">
+          <h4 className="text-sm font-medium text-[var(--app-muted)] mb-3">
             Add New Variable
           </h4>
           <div className="space-y-3">
@@ -223,30 +223,30 @@ export function EnvironmentSettings({ projectId }: EnvironmentSettingsProps) {
                     .toUpperCase();
                   setNewKey(cleaned);
                 }}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 "
+                className="flex-1 px-3 py-2 border border-[var(--app-border)] rounded-lg bg-[var(--app-surface)] text-[var(--app-text)] placeholder:text-[var(--app-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <input
                 type={isSecret ? 'password' : 'text'}
                 placeholder="Value"
                 value={newValue}
                 onChange={(e) => setNewValue(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 "
+                className="flex-1 px-3 py-2 border border-[var(--app-border)] rounded-lg bg-[var(--app-surface)] text-[var(--app-text)] placeholder:text-[var(--app-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <label className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={isSecret}
                   onChange={(e) => setIsSecret(e.target.checked)}
-                  className="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-500 border-[var(--app-border)] rounded focus:ring-blue-500 bg-[var(--app-surface)]"
                 />
-                <span className="text-sm text-gray-700 ">
+                <span className="text-sm text-[var(--app-muted)]">
                   Mark as secret
                 </span>
               </label>
-              
+
               <button
                 onClick={handleAdd}
                 disabled={!newKey || !newValue}

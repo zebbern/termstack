@@ -905,6 +905,7 @@ export async function executeClaude(
         if (toolName.toLowerCase() === 'bash') {
           const bashCommand = normalizeBashCommand(input);
           if (bashCommand && isDisallowedBashCommand(bashCommand)) {
+            console.log('[Claude:ToolGate] BLOCKED tool=%s command=%s', toolName, bashCommand);
             return {
               behavior: 'deny',
               message:
@@ -926,6 +927,11 @@ export async function executeClaude(
             const resolved = path.resolve(targetPath);
             const rel = path.relative(absoluteProjectPath, resolved);
             if (rel.startsWith('..') || path.isAbsolute(rel)) {
+              console.log(
+                '[Claude:ToolGate] BLOCKED tool=%s path=%s (outside project scope)',
+                toolName,
+                targetPath
+              );
               return {
                 behavior: 'deny',
                 message: `File operations are restricted to this project directory. "${targetPath}" is outside the project scope.`,

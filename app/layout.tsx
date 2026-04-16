@@ -1,6 +1,7 @@
 import './globals.css'
 import { Metadata } from 'next'
 import GlobalSettingsProvider from '@/contexts/GlobalSettingsContext'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export const metadata: Metadata = {
   title: 'termstack | AI-powered app builder',
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 }}
               />
             </div>
-            <main className="relative z-10 min-h-screen">{children}</main>
+            <main className="relative z-10 min-h-screen">
+              <ErrorBoundary>{children}</ErrorBoundary>
+            </main>
           </div>
         </GlobalSettingsProvider>
       </body>

@@ -19,11 +19,6 @@ export const ACTIVE_CLI_OPTIONS: ActiveCliOption[] = CLI_OPTIONS.filter((option)
   isActiveCliId(option.id)
 );
 
-export const ACTIVE_CLI_OPTIONS_MAP = ACTIVE_CLI_OPTIONS.reduce<Record<ActiveCliId, ActiveCliOption>>((acc, option) => {
-  acc[option.id] = option;
-  return acc;
-}, {} as Record<ActiveCliId, ActiveCliOption>);
-
 export const ACTIVE_CLI_BRAND_COLORS = ACTIVE_CLI_OPTIONS.reduce<Record<ActiveCliId, string>>((acc, option) => {
   acc[option.id] = option.brandColor ?? '#DE7356';
   return acc;
@@ -31,13 +26,6 @@ export const ACTIVE_CLI_BRAND_COLORS = ACTIVE_CLI_OPTIONS.reduce<Record<ActiveCl
 
 export const ACTIVE_CLI_NAME_MAP = ACTIVE_CLI_OPTIONS.reduce<Record<ActiveCliId, string>>((acc, option) => {
   acc[option.id] = option.name;
-  return acc;
-}, {} as Record<ActiveCliId, string>);
-
-export const ACTIVE_CLI_ICON_MAP = ACTIVE_CLI_OPTIONS.reduce<Record<ActiveCliId, string>>((acc, option) => {
-  if (option.icon) {
-    acc[option.id] = option.icon;
-  }
   return acc;
 }, {} as Record<ActiveCliId, string>);
 

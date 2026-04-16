@@ -9,14 +9,16 @@ import {
   Layers3,
   Loader2,
   Menu,
-  MessageSquareText,
   Plus,
+  RefreshCw,
   Search,
   Settings,
+  Terminal,
   Trash2,
   Workflow,
   X,
 } from 'lucide-react';
+import ConsolePanel from '@/components/console/ConsolePanel';
 import { getDefaultModelForCli, getModelDefinitionsForCli, normalizeModelId } from '@/lib/constants/cliModels';
 import { fetchCliStatusSnapshot } from '@/hooks/useCLI';
 import DeleteProjectModal from '@/components/modals/DeleteProjectModal';
@@ -59,7 +61,6 @@ const NAV_ITEMS: Array<{ id: HomeView; label: string; icon: typeof Home }> = [
 ];
 
 const SECONDARY_ITEMS = [
-  { label: 'Chats', icon: MessageSquareText },
   { label: 'Workflows', icon: Workflow },
   { label: 'Templates', icon: Layers3 },
 ];
@@ -130,6 +131,7 @@ export default function HomePage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
 
   const loadProjects = useCallback(async () => {
     setIsLoadingProjects(true);
@@ -304,7 +306,7 @@ export default function HomePage() {
       }
 
       await loadProjects();
-      const params = new URLSearchParams({ cli: selectedCli, model: selectedModel });
+      const params = new URLSearchParams({ cli: selectedCli, model: selectedModel, initial_prompt: prompt });
       router.push(`/${projectId}/chat?${params.toString()}`);
     } catch (createError) {
       console.error('[HomePage] Failed to create project:', createError);
@@ -400,16 +402,6 @@ export default function HomePage() {
             <Plus className="h-4 w-4 text-[var(--app-muted)]" />
           </button>
 
-          <label className="mb-4 flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-muted)]">
-            <Search className="h-4 w-4" />
-            <input
-              value={projectSearch}
-              onChange={(event) => setProjectSearch(event.target.value)}
-              placeholder="Search chats"
-              className="w-full border-0 bg-transparent text-[var(--app-text)] outline-none placeholder:text-[var(--app-muted)]"
-            />
-          </label>
-
           <nav className="space-y-1">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
@@ -446,6 +438,19 @@ export default function HomePage() {
                 </div>
               );
             })}
+
+            <button
+              type="button"
+              onClick={() => { setIsConsoleOpen((prev) => !prev); setIsSidebarOpen(false); }}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
+                isConsoleOpen
+                  ? 'bg-[rgba(255,255,255,0.06)] text-[var(--app-text)]'
+                  : 'text-[var(--app-muted)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--app-text)]'
+              }`}
+            >
+              <Terminal className="h-4 w-4" />
+              <span>Console</span>
+            </button>
           </nav>
 
           <div className="mt-8 flex-1 overflow-y-auto">
@@ -457,9 +462,19 @@ export default function HomePage() {
                 className="rounded-md p-1.5 text-[var(--app-muted)] transition hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--app-text)]"
                 aria-label="Refresh chats"
               >
-                <Loader2 className={`h-4 w-4 ${isLoadingProjects ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-3.5 w-3.5 ${isLoadingProjects ? 'animate-spin' : ''}`} />
               </button>
             </div>
+
+            <label className="mx-1 mb-2 flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-1.5 text-sm text-[var(--app-muted)]">
+              <Search className="h-3.5 w-3.5" />
+              <input
+                value={projectSearch}
+                onChange={(event) => setProjectSearch(event.target.value)}
+                placeholder="Search chats"
+                className="w-full border-0 bg-transparent text-[var(--app-text)] text-xs outline-none placeholder:text-[var(--app-muted)]"
+              />
+            </label>
             <div className="space-y-1">
               {isLoadingProjects ? (
                 <div className="px-3 py-6 text-sm text-[var(--app-muted)]">Loading chats...</div>
@@ -503,11 +518,11 @@ export default function HomePage() {
               <div className="flex flex-1 items-center justify-center">
                 <div className="w-full max-w-[42rem]">
                   <div className="mx-auto max-w-2xl text-center">
-                    <h1 className="text-3xl font-semibold tracking-tight text-[var(--app-text)] sm:text-4xl lg:text-[3.25rem]">
+                    <h1 className="text-3xl font-semibold tracking-tight text-[var(--app-text)] sm:text-4xl lg:text-[2.55rem]">
                       What do you want to create?
                     </h1>
                     <p className="mt-3 text-sm text-[var(--app-muted)] sm:text-base">
-                      Pick the agent, describe the product, and jump straight into the working chat for that project.
+                      github.com/zebbern
                     </p>
                   </div>
 
@@ -524,7 +539,7 @@ export default function HomePage() {
                           }
                         }}
                         rows={3}
-                        placeholder="Ask termstack to build a polished landing page, dashboard, app, or redesign..."
+                        placeholder="Ask termstack to build.."
                         className="w-full resize-none border-0 bg-transparent text-base leading-6 text-[var(--app-text)] outline-none placeholder:text-[var(--app-muted)]"
                       />
                     </div>
@@ -658,6 +673,11 @@ export default function HomePage() {
           </div>
         </section>
       </div>
+
+      <ConsolePanel
+        isOpen={isConsoleOpen}
+        onClose={() => setIsConsoleOpen(false)}
+      />
 
       <DeleteProjectModal
         isOpen={Boolean(deleteTarget)}

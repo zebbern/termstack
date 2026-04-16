@@ -70,7 +70,7 @@ export function ServiceSettings({ projectId, onOpenGlobalSettings }: ServiceSett
       description: 'Connect to Supabase for backend services and database'
     }
   ]);
-  
+
   const [gitHubModalOpen, setGitHubModalOpen] = useState(false);
   const [vercelModalOpen, setVercelModalOpen] = useState(false);
   const [supabaseModalOpen, setSupabaseModalOpen] = useState(false);
@@ -113,9 +113,9 @@ export function ServiceSettings({ projectId, onOpenGlobalSettings }: ServiceSett
     try {
       const response = await fetch(`${API_BASE}/api/projects/${projectId}/services`);
       if (!response.ok) return;
-      
+
       const connections: ServiceConnection[] = await response.json();
-      
+
       // Update services with connection status
       setServices(prev => prev.map(service => {
         const connection = connections.find(conn => conn.provider === service.id);
@@ -139,7 +139,7 @@ export function ServiceSettings({ projectId, onOpenGlobalSettings }: ServiceSett
         fetch(`${API_BASE}/api/tokens/supabase`),
         fetch(`${API_BASE}/api/tokens/vercel`)
       ]);
-      
+
       setTokenStatus({
         github: githubRes.ok,
         supabase: supabaseRes.ok,
@@ -166,17 +166,17 @@ export function ServiceSettings({ projectId, onOpenGlobalSettings }: ServiceSett
       setGitHubModalOpen(true);
       return;
     }
-    
+
     if (serviceId === 'vercel') {
       setVercelModalOpen(true);
       return;
     }
-    
+
     if (serviceId === 'supabase') {
       setSupabaseModalOpen(true);
       return;
     }
-    
+
     // For other services, show placeholder
     alert(`${serviceId} integration not implemented yet.`);
   };
@@ -201,13 +201,13 @@ export function ServiceSettings({ projectId, onOpenGlobalSettings }: ServiceSett
 
   const handleDisconnect = async (serviceId: string) => {
     if (!confirm(`Disconnect from ${serviceId}?`)) return;
-    
+
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE}/api/projects/${projectId}/services/${serviceId}`, {
         method: 'DELETE'
       });
-      
+
       if (response.ok) {
         loadServiceConnections(); // Reload connections
       } else {
@@ -224,53 +224,52 @@ export function ServiceSettings({ projectId, onOpenGlobalSettings }: ServiceSett
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-1">
+        <h3 className="text-lg font-medium text-[var(--app-text)] mb-1">
           Service Integrations
         </h3>
-        <p className="text-sm text-gray-600 mb-4">Connect GitHub, Supabase and Vercel with a consistent, polished experience.</p>
+        <p className="text-sm text-[var(--app-muted)] mb-4">Connect GitHub, Supabase and Vercel with a consistent, polished experience.</p>
 
         <div className="space-y-4">
           {services.map(service => (
             <div
               key={service.id}
-              className="relative group overflow-hidden rounded-2xl border border-gray-200/80 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 transition-all duration-200 hover:shadow-lg"
+              className="relative group overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] transition-all duration-200 hover:border-[var(--app-border-strong)]"
             >
-              <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
               <div className="p-5 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 justify-between">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-xl ring-1 ring-inset ring-gray-200 bg-gray-50 text-gray-700 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl ring-1 ring-inset ring-[var(--app-border)] bg-[var(--app-surface-2)] text-[var(--app-text)] flex items-center justify-center">
                     {getProviderIcon(service.icon)}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-3 mb-1 min-w-0">
-                      <h4 className="text-[15px] font-semibold tracking-tight text-gray-900 ">
+                      <h4 className="text-[15px] font-semibold tracking-tight text-[var(--app-text)]">
                         {service.name}
                       </h4>
                       {service.connected && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium text-emerald-700 bg-emerald-100 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium text-emerald-400 bg-emerald-900/30 whitespace-nowrap">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           Connected
                         </span>
                       )}
                       {!service.connected && tokenStatus[service.id as keyof typeof tokenStatus] === false && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium text-amber-700 bg-amber-100 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium text-amber-400 bg-amber-900/30 whitespace-nowrap">
                           <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/></svg>
                           Token needed
                         </span>
                       )}
                     </div>
 
-                    <div className="text-sm leading-6 text-gray-600 min-w-0">
+                    <div className="text-sm leading-6 text-[var(--app-muted)] min-w-0">
                       {!service.connected ? (
                         <p className="truncate whitespace-nowrap sm:whitespace-normal sm:overflow-visible sm:max-w-[60ch]">
                           {service.description}
                         </p>
                       ) : (
-                        <div className="text-gray-700 ">
+                        <div className="text-[var(--app-text)]">
                           {service.id === 'github' && service.connection?.service_data?.repo_url ? (
                             <div className="flex items-center gap-2">
                               <span className="shrink-0">Repository:</span>
-                              <a 
+                              <a
                                 href={service.connection.service_data.repo_url}
                                 target="_blank" rel="noopener noreferrer"
                                 className="truncate font-mono text-blue-600 hover:underline"
@@ -281,7 +280,7 @@ export function ServiceSettings({ projectId, onOpenGlobalSettings }: ServiceSett
                           ) : service.id === 'vercel' && service.connection?.service_data?.project_url ? (
                             <div className="flex items-center gap-2">
                               <span className="shrink-0">Project:</span>
-                              <a 
+                              <a
                                 href={service.connection.service_data.project_url}
                                 target="_blank" rel="noopener noreferrer"
                                 className="truncate font-mono text-blue-600 hover:underline"
@@ -292,7 +291,7 @@ export function ServiceSettings({ projectId, onOpenGlobalSettings }: ServiceSett
                           ) : service.id === 'supabase' && service.connection?.service_data?.project_url ? (
                             <div className="flex items-center gap-2">
                               <span className="shrink-0">Project:</span>
-                              <a 
+                              <a
                                 href={service.connection.service_data.project_url}
                                 target="_blank" rel="noopener noreferrer"
                                 className="truncate font-mono text-blue-600 hover:underline"
@@ -312,7 +311,7 @@ export function ServiceSettings({ projectId, onOpenGlobalSettings }: ServiceSett
                     {service.connected ? (
                       <button
                         onClick={() => handleDisconnect(service.id)}
-                        className="px-4 py-2 text-sm rounded-xl text-red-600 hover:text-red-700 border border-transparent hover:border-red-200 hover:bg-red-50 transition whitespace-nowrap w-full sm:w-auto"
+                        className="px-4 py-2 text-sm rounded-xl text-red-400 hover:text-red-300 border border-transparent hover:border-red-500/30 hover:bg-red-500/10 transition whitespace-nowrap w-full sm:w-auto"
                         disabled={isLoading}
                       >
                         Disconnect

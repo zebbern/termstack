@@ -6,7 +6,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { Brain } from 'lucide-react';
 import ToolResultItem from './ToolResultItem';
 import ThinkingSection from './ThinkingSection';
-import type { ChatMessage, RealtimeEvent, RealtimeStatus } from '@/types';
+import type { ChatMessage, PreviewEventInfo, RealtimeEvent, RealtimeStatus } from '@/types';
 import { toChatMessage, normalizeChatContent } from '@/lib/serializers/client/chat';
 import { toRelativePath } from '@/lib/utils/path';
 
@@ -792,7 +792,7 @@ const ToolMessage = ({
         pickFirstString(meta.diff_info) ??
         cleanContent;
     }
-    
+
     processedContent = cleanContent ?? '';
 
     if (!processedContent) {
@@ -806,7 +806,7 @@ const ToolMessage = ({
         pickFirstString(obj.description) ??
         processedContent;
     }
-    
+
     processedContent = processedContent
       .replace(/\[object Object\]/g, '')
       .replace(/[🔧⚡🔍📖✏️📁🌐🔎🤖📝🎯✅📓⚙️🧠]/g, '')
@@ -848,15 +848,15 @@ const ToolMessage = ({
     if (toolResultMatch && !cleanContent) {
       cleanContent = toolResultMatch[1]?.trim() || undefined;
     }
-    
+
     if (!filePath) {
       const toolMatch = processedContent.match(/\*\*(Read|LS|Glob|Grep|Edit|Write|Bash|MultiEdit|TodoWrite)\*\*\s*`?([^`\n]+)`?/);
       if (toolMatch) {
         const toolName = toolMatch[1];
         const toolArg = toolMatch[2].trim();
-        
+
         switch (toolName) {
-          case 'Read': 
+          case 'Read':
             action = 'Read';
             filePath = toolArg;
             cleanContent = undefined;
@@ -867,12 +867,12 @@ const ToolMessage = ({
             filePath = toolArg;
             cleanContent = undefined;
             break;
-          case 'Write': 
+          case 'Write':
             action = 'Created';
             filePath = toolArg;
             cleanContent = undefined;
             break;
-          case 'LS': 
+          case 'LS':
             action = 'Searched';
             filePath = toolArg;
             cleanContent = undefined;
@@ -883,7 +883,7 @@ const ToolMessage = ({
             filePath = toolArg;
             cleanContent = undefined;
             break;
-          case 'Bash': 
+          case 'Bash':
             action = 'Executed';
             filePath = toolArg.split('\n')[0];
             cleanContent = undefined;
@@ -896,7 +896,7 @@ const ToolMessage = ({
         }
       }
     }
-    
+
     return {
       action,
       filePath,
@@ -904,7 +904,7 @@ const ToolMessage = ({
       toolName: inferredToolName,
     };
   };
-  
+
   const { action, filePath, cleanContent, toolName } = processToolContent(content);
 
   const fallbackLabel =
@@ -954,7 +954,7 @@ const ToolMessage = ({
     (cleanedContent && cleanedContent.trim().length > 0
       ? cleanedContent
       : metadataContentCandidate) ?? lastStableValuesRef.current.content;
-  
+
   return (
     <ToolResultItem
       action={persistedAction}
@@ -988,6 +988,7 @@ interface ChatLogProps {
   projectId: string;
   onSessionStatusChange?: (isRunning: boolean) => void;
   onProjectStatusUpdate?: (status: string, message?: string) => void;
+  onPreviewDiagnostic?: (diagnostic: PreviewEventInfo) => void;
   onSseFallbackActive?: (active: boolean) => void;
   startRequest?: (requestId: string) => void;
   completeRequest?: (requestId: string, isSuccessful: boolean, errorMessage?: string) => void;
@@ -997,7 +998,7 @@ interface ChatLogProps {
   }) => void;
 }
 
-export default function ChatLog({ projectId, onSessionStatusChange, onProjectStatusUpdate, onSseFallbackActive, startRequest, completeRequest, onAddUserMessage }: ChatLogProps) {
+export default function ChatLog({ projectId, onSessionStatusChange, onProjectStatusUpdate, onPreviewDiagnostic, onSseFallbackActive, startRequest, completeRequest, onAddUserMessage }: ChatLogProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
@@ -1005,6 +1006,7 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [previewNotice, setPreviewNotice] = useState<PreviewEventInfo | null>(null);
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [needsHistoryRefresh, setNeedsHistoryRefresh] = useState(false);
@@ -1124,6 +1126,15 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
     setHasError(false);
     setErrorMessage(null);
   }, []);
+
+  useEffect(() => {
+    if (!previewNotice || previewNotice.severity === 'error' || previewNotice.severity === 'warning') {
+      return;
+    }
+
+    const timer = setTimeout(() => setPreviewNotice(null), 5000);
+    return () => clearTimeout(timer);
+  }, [previewNotice]);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [totalMessageCount, setTotalMessageCount] = useState(0);
 
@@ -1244,8 +1255,6 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
     if (!projectId) return;
 
     try {
-      console.log('[ChatLog] Checking for missing messages due to network interruption...');
-
       // Get current message count from UI state
       const currentMessageCount = messages.length;
 
@@ -1256,11 +1265,10 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
       const data = await response.json();
       const totalMessages = data.totalCount || 0;
 
-      // If database has more messages than UI state, trigger a reload flag
+      // If database has more messages than UI state, trigger a silent background reload
       if (totalMessages > currentMessageCount) {
-        console.log(`[ChatLog] Detected ${totalMessages - currentMessageCount} missing messages. Setting reload flag...`);
-        // Set a flag to trigger reload in the polling effect
-        setHasLoadedOnce(false);
+        console.debug(`[ChatLog] Detected ${totalMessages - currentMessageCount} missing messages, refreshing silently...`);
+        setNeedsHistoryRefresh(true);
       }
     } catch (error) {
       console.error('[ChatLog] Error checking for missing messages:', error);
@@ -1399,6 +1407,27 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
       const statusData = (payload as RealtimeStatus | undefined) ?? undefined;
       const resolvedStatus = statusData?.status ?? status;
 
+      if ((resolvedStatus === 'preview_error' || resolvedStatus === 'preview_success') && statusData?.message) {
+        const metadata = statusData.metadata ?? {};
+        const diagnostic: PreviewEventInfo = {
+          message: statusData.message,
+          severity:
+            typeof metadata.severity === 'string'
+              ? (metadata.severity as PreviewEventInfo['severity'])
+              : resolvedStatus === 'preview_error'
+              ? 'error'
+              : 'info',
+          category:
+            typeof metadata.category === 'string'
+              ? (metadata.category as PreviewEventInfo['category'])
+              : undefined,
+          detail: typeof metadata.detail === 'string' ? metadata.detail : undefined,
+          timestamp: typeof metadata.timestamp === 'string' ? metadata.timestamp : undefined,
+        };
+        setPreviewNotice(diagnostic);
+        onPreviewDiagnostic?.(diagnostic);
+      }
+
       if (statusData?.status && statusData.message && status === 'project_status') {
         onProjectStatusUpdate?.(statusData.status, statusData.message);
       }
@@ -1427,7 +1456,7 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
         completeRequest?.(requestKey, false, statusData?.message);
       }
     },
-    [onProjectStatusUpdate, onSessionStatusChange, startRequest, completeRequest]
+    [onProjectStatusUpdate, onSessionStatusChange, startRequest, completeRequest, onPreviewDiagnostic]
   );
 
   const handleRealtimeError = useCallback((error: Error) => {
@@ -1475,21 +1504,45 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
           break;
         }
         case 'preview_error': {
-          const data = (envelope as { data?: { message?: string; severity?: string } }).data;
+          const data = (envelope as { data?: PreviewEventInfo }).data;
+          const diagnostic: PreviewEventInfo = {
+            message: data?.message ?? 'Preview error detected.',
+            severity: data?.severity,
+            category: data?.category,
+            detail: data?.detail,
+            timestamp: data?.timestamp,
+          };
+          setPreviewNotice(diagnostic);
+          onPreviewDiagnostic?.(diagnostic);
           const payload: RealtimeStatus = {
             status: 'preview_error',
-            message: data?.message,
-            metadata: data?.severity ? { severity: data.severity } : undefined,
+            message: diagnostic.message,
+            metadata: {
+              ...(diagnostic.severity ? { severity: diagnostic.severity } : {}),
+              ...(diagnostic.category ? { category: diagnostic.category } : {}),
+            },
           };
           handleRealtimeStatus('preview_error', payload);
           break;
         }
         case 'preview_success': {
-          const data = (envelope as { data?: { message?: string; severity?: string } }).data;
+          const data = (envelope as { data?: PreviewEventInfo }).data;
+          const diagnostic: PreviewEventInfo = {
+            message: data?.message ?? 'Preview updated.',
+            severity: data?.severity,
+            category: data?.category,
+            detail: data?.detail,
+            timestamp: data?.timestamp,
+          };
+          setPreviewNotice(diagnostic);
+          onPreviewDiagnostic?.(diagnostic);
           const payload: RealtimeStatus = {
             status: 'preview_success',
-            message: data?.message,
-            metadata: data?.severity ? { severity: data.severity } : undefined,
+            message: diagnostic.message,
+            metadata: {
+              ...(diagnostic.severity ? { severity: diagnostic.severity } : {}),
+              ...(diagnostic.category ? { category: diagnostic.category } : {}),
+            },
           };
           handleRealtimeStatus('preview_success', payload);
           break;
@@ -1503,7 +1556,7 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
         }
       }
     },
-    [handleRealtimeMessage, handleRealtimeStatus, handleRealtimeError]
+    [handleRealtimeMessage, handleRealtimeStatus, handleRealtimeError, onPreviewDiagnostic]
   );
 
   // Use the centralized WebSocket hook (with SSE fallback defined below)
@@ -1723,7 +1776,7 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
         return true;
       }
     }
-    
+
     if (!content) return false;
 
     if (/^\s*\[Tool:/i.test(content)) return true;
@@ -1731,11 +1784,11 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
     if (/^Tool result:/i.test(content)) return true;
 
     if (content.includes('[object Object]')) return true;
-    
+
     const toolPatterns = [
       /\*\*(Read|LS|Glob|Grep|Edit|Write|Bash|Task|WebFetch|WebSearch|MultiEdit|TodoWrite)\*\*/,
     ];
-    
+
     return toolPatterns.some(pattern => pattern.test(content));
   }, []);
 
@@ -1893,35 +1946,18 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
             ? expandMessagesList(chatMessages.map(toChatMessage), ensureStableMessageId)
             : [];
 
-          console.log('[ChatLog] Loaded messages from API:', {
-            totalMessages: normalized.length,
-            messagesWithMetadata: normalized.filter(msg => !!msg.metadata).length,
-            messagesWithAttachments: normalized.filter(msg =>
-              msg.metadata &&
-              typeof msg.metadata === 'object' &&
-              (msg.metadata as any).attachments
-            ).length,
-            sampleMessageMetadata: normalized[0]?.metadata
-          });
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('[ChatLog] Loaded messages from API:', normalized.length);
+          }
 
           // Update pagination state
           if (payload.pagination) {
-            console.log(`[ChatLog] Loaded ${payload.pagination.count}/${payload.totalCount} messages`);
             setHasMoreMessages(payload.pagination.hasMore || false);
             setTotalMessageCount(payload.totalCount || 0);
           } else {
             setHasMoreMessages(false);
             setTotalMessageCount(normalized.length);
           }
-
-          normalized.forEach((message) => {
-            if (Array.isArray((message.metadata as any)?.attachments) && (message.metadata as any).attachments.length > 0) {
-              console.log('🖼️ DB loaded message with attachments:', {
-                messageId: message.id,
-                attachments: (message.metadata as any).attachments,
-              });
-            }
-          });
 
           setMessages((prev) => integrateMessages(prev, normalized));
         }
@@ -2133,18 +2169,18 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
   // Initial load
   useEffect(() => {
     if (!projectId) return;
-    
+
     let mounted = true;
-    
+
     const loadData = async () => {
       if (mounted) {
         await loadChatHistory({ showLoading: true });
         await checkActiveSession();
       }
     };
-    
+
     loadData();
-    
+
     return () => {
       mounted = false;
       if (pollIntervalRef.current) {
@@ -2170,13 +2206,13 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
     // Filter out system-internal messages that shouldn't be shown to users
     const internalMessageTypes = [
       'cli_output',        // CLI execution logs
-      'session_status',    // Session state updates  
+      'session_status',    // Session state updates
       'status',            // Generic status updates
       'message',           // Already handled by onMessage
       'project_status',    // Already handled by onStatus
       'act_complete'       // Already handled by onStatus
     ];
-    
+
     // Only add to logs if it's not an internal message type
     if (!internalMessageTypes.includes(data.type)) {
       const logEntry: LogEntry = {
@@ -2185,7 +2221,7 @@ export default function ChatLog({ projectId, onSessionStatusChange, onProjectSta
         data: data.data || data,
         timestamp: data.timestamp || new Date().toISOString()
       };
-      
+
       setLogs(prev => [...prev, logEntry]);
     }
   };
@@ -2229,15 +2265,15 @@ const ToolResultMessage = ({
   // Function to clean user messages by removing think hard instruction and chat mode instructions
   const cleanUserMessage = (content: string) => {
     if (!content) return content;
-    
+
     let cleanedContent = content;
-    
+
     // Remove think hard instruction
     cleanedContent = cleanedContent.replace(/\.\s*think\s+hard\.\s*$/, '');
-    
+
     // Remove chat mode instruction
     cleanedContent = cleanedContent.replace(/\n\nDo not modify code, only answer to the user's request\.$/, '');
-    
+
     return cleanedContent.trim();
   };
 
@@ -2256,7 +2292,7 @@ const ToolResultMessage = ({
         const beforeText = content.slice(lastIndex, match.index).trim();
         if (beforeText) {
           parts.push(
-            <ReactMarkdown 
+            <ReactMarkdown
               key={createKey('text-before')}
               components={{
                 p: ({children}) => <p className="mb-2 last:mb-0 break-words">{children}</p>,
@@ -2279,7 +2315,7 @@ const ToolResultMessage = ({
       const thinkingText = match[1].trim();
       if (thinkingText) {
         parts.push(
-          <ThinkingSection 
+          <ThinkingSection
             key={createKey('thinking')}
             content={thinkingText}
           />
@@ -2294,7 +2330,7 @@ const ToolResultMessage = ({
       const remainingText = content.slice(lastIndex).trim();
       if (remainingText) {
         parts.push(
-          <ReactMarkdown 
+          <ReactMarkdown
             key={createKey('text-after')}
             components={{
               p: ({children}) => {
@@ -2333,7 +2369,7 @@ const ToolResultMessage = ({
     // If no thinking tags found, return original content with markdown
     if (parts.length === 0) {
       return (
-        <ReactMarkdown 
+        <ReactMarkdown
           components={{
             p: ({children}) => {
               // Check if this paragraph contains Planning tool message
@@ -2375,7 +2411,7 @@ const ToolResultMessage = ({
   // Function to get message type label and styling
   const getMessageTypeInfo = (message: ChatMessage) => {
     const { role, messageType } = message;
-    
+
     // Handle different message types
     switch (messageType) {
       case 'tool_result':
@@ -2546,7 +2582,7 @@ const ToolResultMessage = ({
       case 'text':
         return (
           <div>
-            <ReactMarkdown 
+            <ReactMarkdown
               components={{
                 p: ({children}) => <p className="mb-2 last:mb-0 break-words">{children}</p>,
                 strong: ({children}) => <strong className="font-medium">{children}</strong>,
@@ -2788,6 +2824,45 @@ const ToolResultMessage = ({
         </div>
       )}
 
+      {previewNotice && (
+        <div
+          className={`mx-8 mt-3 rounded-lg border p-4 ${
+            previewNotice.severity === 'error'
+              ? 'border-amber-200 bg-amber-50'
+              : previewNotice.severity === 'warning'
+              ? 'border-yellow-200 bg-yellow-50'
+              : 'border-emerald-200 bg-emerald-50'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-gray-900">Preview update</h3>
+                {previewNotice.category && (
+                  <span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-600">
+                    {previewNotice.category.replace(/-/g, ' ')}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-gray-800">{previewNotice.message}</p>
+              {previewNotice.detail && (
+                <p className="mt-1 text-xs text-gray-600">{previewNotice.detail}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewNotice(null)}
+              className="text-gray-400 transition-colors hover:text-gray-600"
+              aria-label="Dismiss preview notice"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Display messages and logs together */}
       <div className="flex-1 overflow-y-auto px-8 py-3 space-y-2 custom-scrollbar ">
         {showInitialLoadingState && (
@@ -2798,11 +2873,10 @@ const ToolResultMessage = ({
             </div>
           </div>
         )}
-        
+
         {showEmptyState && (
           <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
             <div className="text-center">
-              <div className="text-2xl mb-2">💬</div>
               <p>Start a conversation with your agent</p>
             </div>
           </div>
@@ -2846,19 +2920,19 @@ const ToolResultMessage = ({
                       <div className="text-sm text-gray-900 break-words">
                         {(() => {
                           const cleanedMessage = cleanUserMessage(messageText);
-                          
+
                           // Check if message contains image paths
                           const imagePattern = /Image #\d+ path: ([^\n]+)/g;
                           const imagePaths: string[] = [];
                           let match;
-                          
+
                           while ((match = imagePattern.exec(cleanedMessage)) !== null) {
                             imagePaths.push(match[1]);
                           }
-                          
+
                           // Remove image paths from message
                           const messageWithoutPaths = cleanedMessage.replace(/\n*Image #\d+ path: [^\n]+/g, '').trim();
-                          
+
                           return (
                             <>
                               {messageWithoutPaths && (
@@ -3041,7 +3115,7 @@ const ToolResultMessage = ({
             </div>
           </div>
         ))}
-        
+
         {/* Loading indicator for waiting response */}
         {isWaitingForResponse && (
           <div className="mb-4 w-full">
@@ -3050,7 +3124,7 @@ const ToolResultMessage = ({
             </div>
           </div>
         )}
-        
+
         <div ref={logsEndRef} />
       </div>
 

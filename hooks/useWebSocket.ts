@@ -193,9 +193,12 @@ export function useWebSocket({
                 const payload: RealtimeStatus = {
                   status: envelope.type,
                   message: envelope.data?.message,
-                  metadata: envelope.data?.severity
-                    ? { severity: envelope.data.severity }
-                    : undefined,
+                  metadata: {
+                    ...(envelope.data?.severity ? { severity: envelope.data.severity } : {}),
+                    ...(envelope.data?.category ? { category: envelope.data.category } : {}),
+                    ...(envelope.data?.detail ? { detail: envelope.data.detail } : {}),
+                    ...(envelope.data?.timestamp ? { timestamp: envelope.data.timestamp } : {}),
+                  },
                 };
                 handleStatus(envelope.type, payload);
               }
@@ -213,14 +216,11 @@ export function useWebSocket({
         }
       };
 
-      ws.onerror = (error) => {
+      ws.onerror = () => {
         if (manualCloseRef.current) {
           setIsConnecting(false);
           return;
         }
-        console.error('❌ WebSocket error:', error);
-        console.error('❌ WebSocket readyState:', ws.readyState);
-        console.error('❌ WebSocket URL:', ws.url);
         clearHeartbeat();
         setIsConnecting(false);
         handlersRef.current.onError?.(new Error(`WebSocket connection error to ${ws.url}`));
@@ -231,7 +231,7 @@ export function useWebSocket({
         setIsConnecting(false);
         clearHeartbeat();
         handlersRef.current.onDisconnect?.();
-        
+
         // Only reconnect if we should
         if (shouldReconnectRef.current) {
           const attempts = connectionAttemptsRef.current + 1;
@@ -243,7 +243,6 @@ export function useWebSocket({
             // After max attempts, keep trying every 30-60 seconds
             const longDelay = 30000 + Math.random() * 30000; // 30-60s
             delay = longDelay;
-            console.warn(`[WebSocket] Max reconnection attempts reached, retrying every 30-60s (attempt ${attempts})`);
             const error = new Error('Max reconnection attempts reached, continuing with longer delays');
             handlersRef.current.onError?.(error);
           } else {
@@ -254,7 +253,7 @@ export function useWebSocket({
             );
             const jitter = Math.random() * 1000; // Add 0-1s jitter
             delay = exponentialDelay + jitter;
-            console.log(`[WebSocket] Reconnecting in ${Math.round(delay)}ms (attempt ${attempts}/${WEBSOCKET_CONFIG.MAX_RECONNECT_ATTEMPTS})`);
+
           }
 
           reconnectTimeoutRef.current = setTimeout(() => {
@@ -280,7 +279,7 @@ export function useWebSocket({
           openWebSocket();
         } catch (error) {
           setIsConnecting(false);
-          console.error('Failed to create WebSocket connection:', error);
+
           handlersRef.current.onError?.(error as Error);
         }
       }
@@ -292,11 +291,11 @@ export function useWebSocket({
     manualCloseRef.current = true;
     clearHeartbeat();
     setIsConnecting(false);
-    
+
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
     }
-    
+
     if (wsRef.current) {
       const socket = wsRef.current;
       wsRef.current = null;
@@ -309,20 +308,17 @@ export function useWebSocket({
         socket.close(1000, 'Client disconnect');
       }
     }
-    
+
     setIsConnected(false);
   }, [clearHeartbeat]);
 
-  const sendMessage = useCallback((data: any) => {
+  const sendMessage = useCallback((data: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data));
-    } else {
-      console.warn('WebSocket is not connected');
     }
   }, []);
 
   const manualReconnect = useCallback(() => {
-    console.log('[WebSocket] Manual reconnect triggered');
     shouldReconnectRef.current = true;
     connectionAttemptsRef.current = 0; // Reset attempt counter
     disconnect();
@@ -334,7 +330,7 @@ export function useWebSocket({
     manualCloseRef.current = false;
     connectionAttemptsRef.current = 0;
     connect();
-    
+
     return () => {
       disconnect();
     };

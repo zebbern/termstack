@@ -45,9 +45,20 @@ export interface HeartbeatInfo {
   timestamp: string;
 }
 
+export type PreviewDiagnosticCategory =
+  | 'ready'
+  | 'dependency-install'
+  | 'build'
+  | 'startup'
+  | 'runtime-error'
+  | 'runtime-exit';
+
 export interface PreviewEventInfo {
   message: string;
   severity?: 'info' | 'warning' | 'error';
+  category?: PreviewDiagnosticCategory;
+  detail?: string;
+  timestamp?: string;
 }
 
 export type RealtimeEvent =

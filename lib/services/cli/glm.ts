@@ -36,13 +36,12 @@ const STATUS_LABELS: Record<string, string> = {
   completed: 'GLM execution completed',
 };
 
-const AUTO_INSTRUCTIONS = `Act autonomously without waiting for confirmations.
-You are the GLM CLI assistant. Refer to yourself as GLM, not Claude.
-Work directly inside the current workspace (Next.js App Router with TypeScript and Tailwind CSS).
-Use Claude Code compatible tools to read, modify, and create files. Prefer apply_patch style edits when changing existing files.
-Do not create new top-level directories unless explicitly requested.
-Avoid running package managers or starting development servers; the platform handles previews.
-Explain your intent briefly when helpful, then take concrete actions until the task is complete.`;
+import { PLATFORM_RULES } from './shared-instructions';
+
+const AUTO_INSTRUCTIONS = `${PLATFORM_RULES}
+- Act autonomously without waiting for confirmations.
+- You are the GLM CLI assistant. Refer to yourself as GLM, not Claude.
+- Use Claude Code compatible tools to read, modify, and create files.`;
 
 type StreamAccumulator = {
   id: string;

@@ -6,6 +6,9 @@ applyTo: "**/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py,**/*.mjs"
 
 These rules govern how errors are handled in code produced by AgLoop agents and within the agent framework itself. Silent failures are the primary cause of cascading bugs.
 
+
+on windows to identify any PID (Process ID) associated with a running process, run: tasklist | findstr <PID> then to kill a process by PID, run: taskkill /PID <PID> /F 
+
 ---
 
 ## 1. AGLOOP_ERROR_PATTERNS

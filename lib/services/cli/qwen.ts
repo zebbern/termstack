@@ -25,11 +25,11 @@ import {
   markUserRequestAsRunning,
 } from '@/lib/services/user-requests';
 
-const AUTO_INSTRUCTIONS = `Act autonomously without waiting for confirmations.
-Use the built-in tools (edit, write_file, read_file, run_shell_command, glob) to modify files directly in the current workspace.
-Avoid creating new top-level directories unless the user explicitly asks for it.
-Keep output concise and only include code blocks when relevant.
-Explain your plan briefly before making changes when helpful.`;
+import { PLATFORM_RULES } from './shared-instructions';
+
+const AUTO_INSTRUCTIONS = `${PLATFORM_RULES}
+- Act autonomously without waiting for confirmations.
+- Use built-in file tools (edit, write_file, read_file) to modify files directly in the current workspace.`;
 
 const STATUS_LABELS: Record<string, string> = {
   starting: 'Initializing Qwen CLI...',

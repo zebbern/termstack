@@ -4,8 +4,9 @@ import { AnimatePresence } from 'framer-motion';
 import { MotionDiv, MotionH3, MotionP, MotionButton } from '@/lib/motion';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { FaCode, FaDesktop, FaMobileAlt, FaPlay, FaStop, FaSync, FaCog, FaRocket, FaFolder, FaFolderOpen, FaFile, FaFileCode, FaCss3Alt, FaHtml5, FaJs, FaReact, FaPython, FaDocker, FaGitAlt, FaMarkdown, FaDatabase, FaPhp, FaJava, FaRust, FaVuejs, FaLock, FaHome, FaChevronUp, FaChevronRight, FaChevronDown, FaArrowLeft, FaArrowRight, FaRedo } from 'react-icons/fa';
-import { Moon, Sun } from 'lucide-react';
+import { FaCode, FaDesktop, FaMobileAlt, FaPlay, FaSync, FaCog, FaFolder, FaFolderOpen, FaFile, FaFileCode, FaCss3Alt, FaHtml5, FaJs, FaReact, FaPython, FaDocker, FaGitAlt, FaMarkdown, FaDatabase, FaPhp, FaJava, FaRust, FaVuejs, FaLock, FaHome, FaChevronUp, FaChevronRight, FaChevronDown, FaArrowLeft, FaArrowRight, FaRedo } from 'react-icons/fa';
+import { Moon, Sun, Terminal, ExternalLink, Maximize, MoreVertical, PanelLeftClose, PanelLeftOpen, Settings, Upload } from 'lucide-react';
+import ConsolePanel from '@/components/console/ConsolePanel';
 import { SiTypescript, SiGo, SiRuby, SiSvelte, SiJson, SiYaml, SiCplusplus } from 'react-icons/si';
 import { VscJson } from 'react-icons/vsc';
 import ChatLog from '@/components/chat/ChatLog';
@@ -14,6 +15,7 @@ import ChatInput from '@/components/chat/ChatInput';
 import { ChatErrorBoundary } from '@/components/ErrorBoundary';
 import { useUserRequests } from '@/hooks/useUserRequests';
 import { useGlobalSettings } from '@/contexts/GlobalSettingsContext';
+import type { PreviewEventInfo } from '@/types';
 import { getDefaultModelForCli, getModelDisplayName } from '@/lib/constants/cliModels';
 import {
   ACTIVE_CLI_BRAND_COLORS,
@@ -208,6 +210,8 @@ export default function ChatPage() {
   const [projectName, setProjectName] = useState<string>('');
   const [projectDescription, setProjectDescription] = useState<string>('');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewDiagnostic, setPreviewDiagnostic] = useState<PreviewEventInfo | null>(null);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
   const [tree, setTree] = useState<Entry[]>([]);
   const [content, setContent] = useState<string>('');
@@ -263,6 +267,7 @@ export default function ChatPage() {
   const [initializationMessage, setInitializationMessage] = useState('Starting project initialization...');
   const [initialPromptSent, setInitialPromptSent] = useState(false);
   const initialPromptSentRef = useRef(false);
+  const hasEverHadActiveRequests = useRef(false);
   const [showPublishPanel, setShowPublishPanel] = useState(false);
   const [publishLoading, setPublishLoading] = useState(false);
   const [githubConnected, setGithubConnected] = useState<boolean | null>(null);
@@ -293,6 +298,13 @@ export default function ChatPage() {
   const editedContentRef = useRef<string>('');
   const [isFileUpdating, setIsFileUpdating] = useState(false);
   const isDarkTheme = chatTheme === 'dark';
+  const [chatWidthPercent, setChatWidthPercent] = useState(30);
+  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
+  const preCollapseWidth = useRef(30);
+  const isDraggingDivider = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const activeBrandColor =
     assistantBrandColors[preferredCli] || assistantBrandColors[DEFAULT_ACTIVE_CLI];
   const modelOptions = useMemo(() => buildModelOptions(cliStatuses), [cliStatuses]);
@@ -325,6 +337,15 @@ export default function ChatPage() {
   useEffect(() => {
     previewUrlRef.current = previewUrl;
   }, [previewUrl]);
+
+  useEffect(() => {
+    if (!previewDiagnostic || previewDiagnostic.severity === 'error' || previewDiagnostic.severity === 'warning') {
+      return;
+    }
+
+    const timer = setTimeout(() => setPreviewDiagnostic(null), 5000);
+    return () => clearTimeout(timer);
+  }, [previewDiagnostic]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -797,6 +818,7 @@ const persistProjectPreferences = useCallback(
 
   const start = useCallback(async () => {
     try {
+      setPreviewDiagnostic(null);
       setIsStartingPreview(true);
       setPreviewInitializationMessage('Starting development server...');
 
@@ -808,6 +830,13 @@ const persistProjectPreferences = useCallback(
       if (!r.ok) {
         console.error('Failed to start preview:', r.statusText);
         setPreviewInitializationMessage('Failed to start preview');
+        setPreviewDiagnostic({
+          category: 'startup',
+          severity: 'error',
+          message: 'Preview request failed before startup completed.',
+          detail: r.statusText,
+          timestamp: new Date().toISOString(),
+        });
         setTimeout(() => setIsStartingPreview(false), 2000);
         return;
       }
@@ -823,6 +852,13 @@ const persistProjectPreferences = useCallback(
     } catch (error) {
       console.error('Error starting preview:', error);
       setPreviewInitializationMessage('An error occurred');
+      setPreviewDiagnostic({
+        category: 'startup',
+        severity: 'error',
+        message: 'Preview request failed before startup completed.',
+        detail: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      });
       setTimeout(() => setIsStartingPreview(false), 2000);
     }
   }, [projectId]);
@@ -863,6 +899,7 @@ const persistProjectPreferences = useCallback(
     try {
       await fetch(`${API_BASE}/api/projects/${projectId}/preview/stop`, { method: 'POST' });
       setPreviewUrl(null);
+      setPreviewDiagnostic(null);
     } catch (error) {
       console.error('Error stopping preview:', error);
     }
@@ -2110,17 +2147,24 @@ const persistProjectPreferences = useCallback(
   const previousActiveState = useRef(false);
 
   useEffect(() => {
+    // Track whether we've ever had active CLI requests
+    if (hasActiveRequests) {
+      hasEverHadActiveRequests.current = true;
+    }
+
+    // Don't auto-start preview if there's an initial_prompt in the URL and the CLI
+    // hasn't started processing yet. Wait for the CLI to finish generating code first.
+    const pendingInitialPrompt = searchParams?.get('initial_prompt');
+    if (pendingInitialPrompt && !hasEverHadActiveRequests.current) {
+      return;
+    }
+
     if (!isInitializing && !hasActiveRequests && !previewUrl && !isStartingPreview) {
-      if (!previousActiveState.current) {
-        console.log('🔄 Preview not running; auto-starting');
-      } else {
-        console.log('✅ Task completed, ensuring preview server is running');
-      }
       start();
     }
 
     previousActiveState.current = hasActiveRequests;
-  }, [isInitializing, hasActiveRequests, previewUrl, isStartingPreview, start]);
+  }, [isInitializing, hasActiveRequests, previewUrl, isStartingPreview, start, searchParams]);
 
   // Poll for file changes in code view
   useEffect(() => {
@@ -2199,6 +2243,54 @@ const persistProjectPreferences = useCallback(
       updateSelectedModel(getDefaultModelForCli(cli), cli);
     }
   }, [globalSettings, usingGlobalDefaults, updatePreferredCli, updateSelectedModel]);
+
+  // Drag-to-resize handler for the chat/preview panel divider
+  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingDivider.current = true;
+    setIsDragging(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isDraggingDivider.current) return;
+      const pct = (ev.clientX / window.innerWidth) * 100;
+      setChatWidthPercent(Math.min(60, Math.max(20, pct)));
+    };
+    const onMouseUp = () => {
+      isDraggingDivider.current = false;
+      setIsDragging(false);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }, []);
+
+  // Collapse/expand chat panel
+  const toggleChatCollapse = useCallback(() => {
+    if (isChatCollapsed) {
+      setChatWidthPercent(preCollapseWidth.current);
+      setIsChatCollapsed(false);
+    } else {
+      preCollapseWidth.current = chatWidthPercent;
+      setChatWidthPercent(0);
+      setIsChatCollapsed(true);
+    }
+  }, [isChatCollapsed, chatWidthPercent]);
+
+  // Close more menu on outside click
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMoreMenu]);
 
 
   // Show loading UI if project is initializing
@@ -2409,6 +2501,30 @@ const persistProjectPreferences = useCallback(
           background-color: var(--chat-bg) !important;
         }
 
+        .chat-theme-dark .bg-gray-400 {
+          background-color: var(--chat-surface-3) !important;
+        }
+
+        .chat-theme-dark .bg-gray-900 {
+          background-color: var(--chat-surface-3) !important;
+        }
+
+        .chat-theme-dark .border-gray-900 {
+          border-color: var(--chat-border) !important;
+        }
+
+        .chat-theme-dark .hover\:bg-gray-900:hover {
+          background-color: var(--chat-surface-3) !important;
+        }
+
+        .chat-theme-dark .disabled\:bg-gray-300:disabled {
+          background-color: var(--chat-surface-3) !important;
+        }
+
+        .chat-theme-dark .disabled\:text-gray-600:disabled {
+          color: var(--chat-muted) !important;
+        }
+
         .chat-theme-dark .caret-gray-800 {
           caret-color: var(--chat-text) !important;
         }
@@ -2521,13 +2637,14 @@ const persistProjectPreferences = useCallback(
       <div className={`chat-page ${isDarkTheme ? 'chat-theme-dark' : 'chat-theme-light'} h-screen flex relative overflow-hidden`}>
         <div className="h-full w-full flex">
           {/* Left: Chat window */}
+          {!isChatCollapsed && (
           <div
-            style={{ width: '30%' }}
-            className={`h-full border-r flex flex-col ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}
+            style={{ width: `${chatWidthPercent}%` }}
+            className={`h-full flex flex-col ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}
           >
             {/* Chat header */}
-            <div className={`bg-white border-b px-4 py-4 min-h-[88px] flex items-start overflow-hidden ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
-              <div className="flex w-full min-w-0 items-start gap-3">
+            <div className={`bg-white border-b px-4 h-[53px] flex items-center overflow-hidden ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
+              <div className="flex w-full min-w-0 items-center gap-3">
                 <button
                   onClick={() => router.push('/')}
                   className="mt-0.5 flex w-8 h-8 flex-shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:text-gray-600 hover:bg-gray-100"
@@ -2541,11 +2658,6 @@ const persistProjectPreferences = useCallback(
                   <h1 className="line-clamp-2 break-words text-base font-semibold leading-tight text-gray-900 sm:text-lg">
                     {projectName || 'Loading...'}
                   </h1>
-                  {projectDescription && (
-                    <p className="mt-1 line-clamp-2 break-words text-sm leading-5 text-gray-500 ">
-                      {projectDescription}
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
@@ -2583,6 +2695,7 @@ const persistProjectPreferences = useCallback(
                   setIsSseFallbackActive(active);
                 }}
                 onProjectStatusUpdate={handleProjectStatusUpdate}
+                onPreviewDiagnostic={setPreviewDiagnostic}
                 startRequest={startRequest}
                 completeRequest={completeRequest}
               />
@@ -2590,7 +2703,14 @@ const persistProjectPreferences = useCallback(
             </div>
 
             {/* Simple input area */}
-            <div className="p-4 rounded-bl-2xl">
+            <div className="relative rounded-bl-2xl">
+              {isDarkTheme && (
+                <div
+                  className="pointer-events-none absolute inset-x-0 -top-10 h-10"
+                  style={{ background: 'linear-gradient(to bottom, transparent, var(--chat-bg))' }}
+                />
+              )}
+              <div className="p-4" style={isDarkTheme ? { background: 'var(--chat-bg)' } : undefined}>
               <ChatInput
                 onSendMessage={(message, images) => {
                   // Pass images to runAct
@@ -2613,16 +2733,41 @@ const persistProjectPreferences = useCallback(
                 onCliChange={handleCliChange}
                 cliChangeDisabled={isUpdatingModel}
               />
+              </div>
             </div>
           </div>
+          )}
+
+          {/* Draggable divider */}
+          {!isChatCollapsed && (
+          <div
+            onMouseDown={handleDividerMouseDown}
+            className={`group relative w-1 h-full cursor-col-resize flex-shrink-0 transition-colors ${isDragging ? 'bg-blue-500/60' : 'bg-transparent hover:bg-blue-500/40'}`}
+          >
+            {/* Wider invisible hit area */}
+            <div className="absolute inset-y-0 -left-1.5 -right-1.5" />
+          </div>
+          )}
+
+          {/* Transparent overlay to prevent iframe from stealing mouse events during drag */}
+          {isDragging && <div className="fixed inset-0 z-[9999] cursor-col-resize" />}
 
           {/* Right: Preview/Code area */}
-          <div className="h-full flex flex-col bg-black" style={{ width: '70%' }}>
+          <div data-preview-container className="h-full flex flex-col bg-black" style={{ width: isChatCollapsed ? '100%' : `${100 - chatWidthPercent}%` }}>
             {/* Content area */}
             <div className="flex-1 min-h-0 flex flex-col">
               {/* Controls Bar */}
-              <div className={`bg-white border-b px-4 h-[73px] flex items-center justify-between ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
+              <div className={`bg-white border-b px-4 h-[53px] flex items-center justify-between ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
                 <div className="flex items-center gap-3">
+                  {/* Collapse/expand chat panel */}
+                  <button
+                    onClick={toggleChatCollapse}
+                    className="h-9 w-9 flex items-center justify-center bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
+                    title={isChatCollapsed ? 'Expand chat panel' : 'Collapse chat panel'}
+                  >
+                    {isChatCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+                  </button>
+
                   {/* Toggle switch */}
                   <div className="flex items-center bg-gray-100 rounded-lg p-1">
                     <button
@@ -2645,13 +2790,50 @@ const persistProjectPreferences = useCallback(
                     >
                       <span className="w-4 h-4 flex items-center justify-center"><FaCode size={16} /></span>
                     </button>
+                    <button
+                      onClick={() => setIsConsoleOpen((prev) => !prev)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                        isConsoleOpen
+                          ? 'bg-white text-gray-900 '
+                          : 'text-gray-600 hover:text-gray-900 '
+                      }`}
+                      title="Console"
+                    >
+                      <span className="w-4 h-4 flex items-center justify-center"><Terminal size={16} /></span>
+                    </button>
                   </div>
 
                   {/* Center Controls */}
                   {showPreview && previewUrl && (
-                    <div className="flex items-center gap-3">
-                      {/* Route Navigation */}
-                      <div className={`h-9 flex items-center bg-gray-100 rounded-lg px-3 border ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
+                    <div className={`h-9 flex items-center bg-gray-100 rounded-lg border ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
+                      {/* Device Mode Toggle */}
+                      <div className="flex items-center gap-0.5 px-1 border-r border-gray-300/50">
+                        <button
+                          aria-label="Desktop preview"
+                          className={`h-7 w-7 flex items-center justify-center rounded transition-colors ${
+                            deviceMode === 'desktop'
+                              ? 'text-blue-600 bg-blue-50'
+                              : 'text-gray-400 hover:text-gray-600'
+                          }`}
+                          onClick={() => setDeviceMode('desktop')}
+                        >
+                          <FaDesktop size={13} />
+                        </button>
+                        <button
+                          aria-label="Mobile preview"
+                          className={`h-7 w-7 flex items-center justify-center rounded transition-colors ${
+                            deviceMode === 'mobile'
+                              ? 'text-blue-600 bg-blue-50'
+                              : 'text-gray-400 hover:text-gray-600'
+                          }`}
+                          onClick={() => setDeviceMode('mobile')}
+                        >
+                          <FaMobileAlt size={13} />
+                        </button>
+                      </div>
+
+                      {/* Route Input */}
+                      <div className="flex items-center px-3">
                         <span className="text-gray-400 mr-2">
                           <FaHome size={12} />
                         </span>
@@ -2671,18 +2853,19 @@ const persistProjectPreferences = useCallback(
                           className="bg-transparent text-sm text-gray-700 outline-none w-40"
                           placeholder="route"
                         />
-                        <button
-                          onClick={() => navigateToRoute(currentRoute)}
-                          className="ml-2 text-gray-500 hover:text-gray-700 "
-                        >
-                          <FaArrowRight size={12} />
-                        </button>
                       </div>
 
-                      {/* Action Buttons Group */}
-                      <div className="flex items-center gap-1.5">
+                      {/* Open in new tab + Refresh */}
+                      <div className="flex items-center gap-0.5 px-1 border-l border-gray-300/50">
                         <button
-                          className="h-9 w-9 flex items-center justify-center bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
+                          onClick={() => window.open(previewUrl!, '_blank')}
+                          className="h-7 w-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 transition-colors"
+                          title="Open in new tab"
+                        >
+                          <ExternalLink size={13} />
+                        </button>
+                        <button
+                          className="h-7 w-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 transition-colors"
                           onClick={() => {
                             const iframe = document.querySelector('iframe');
                             if (iframe) {
@@ -2691,262 +2874,83 @@ const persistProjectPreferences = useCallback(
                           }}
                           title="Refresh preview"
                         >
-                          <FaRedo size={14} />
+                          <FaRedo size={12} />
                         </button>
-
-                        {/* Device Mode Toggle */}
-                        <div className={`h-9 flex items-center gap-1 bg-gray-100 rounded-lg px-1 border ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
-                          <button
-                            aria-label="Desktop preview"
-                            className={`h-7 w-7 flex items-center justify-center rounded transition-colors ${
-                              deviceMode === 'desktop'
-                                ? 'text-blue-600 bg-blue-50 '
-                                : 'text-gray-400 hover:text-gray-600 '
-                            }`}
-                            onClick={() => setDeviceMode('desktop')}
-                          >
-                            <FaDesktop size={14} />
-                          </button>
-                          <button
-                            aria-label="Mobile preview"
-                            className={`h-7 w-7 flex items-center justify-center rounded transition-colors ${
-                              deviceMode === 'mobile'
-                                ? 'text-blue-600 bg-blue-50 '
-                                : 'text-gray-400 hover:text-gray-600 '
-                            }`}
-                            onClick={() => setDeviceMode('mobile')}
-                          >
-                            <FaMobileAlt size={14} />
-                          </button>
-                        </div>
                       </div>
                     </div>
                   )}
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <div className={`flex items-center gap-1 rounded-lg border bg-gray-100 p-1 ${isDarkTheme ? 'border-[rgba(53,64,81,0.92)]' : 'border-gray-200'}`}>
-                    <button
-                      onClick={() => setChatTheme('dark')}
-                      className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
-                        isDarkTheme
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                      title="Use dark theme"
-                      aria-label="Use dark theme"
-                    >
-                      <Moon size={13} />
-                    </button>
-                    <button
-                      onClick={() => setChatTheme('light')}
-                      className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
-                        !isDarkTheme
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                      title="Use light theme"
-                      aria-label="Use light theme"
-                    >
-                      <Sun size={13} />
-                    </button>
-                  </div>
-
-                  {/* Settings Button */}
                   <button
-                    onClick={() => setShowGlobalSettings(true)}
+                    onClick={() => setChatTheme(isDarkTheme ? 'light' : 'dark')}
                     className="h-9 w-9 flex items-center justify-center bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
-                    title="Settings"
+                    title={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
+                    aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
                   >
-                    <FaCog size={16} />
+                    {isDarkTheme ? <Sun size={16} /> : <Moon size={16} />}
                   </button>
 
-                  {/* Stop Button */}
-                  {showPreview && previewUrl && (
+                  {/* Three-dot menu */}
+                  <div className="relative" ref={moreMenuRef}>
                     <button
-                      className="h-9 px-3 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                      onClick={stop}
+                      onClick={() => setShowMoreMenu((prev) => !prev)}
+                      className="h-9 w-9 flex items-center justify-center bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
+                      title="More options"
                     >
-                      <FaStop size={12} />
-                      Stop
+                      <MoreVertical size={16} />
                     </button>
-                  )}
-
-                  {/* Publish/Update */}
-                  {showPreview && previewUrl && (
-                    <div className="relative">
-                    <button
-                      className="h-9 flex items-center gap-2 px-3 bg-black text-white rounded-lg text-sm font-medium transition-colors hover:bg-gray-900 border border-black/10 shadow-sm"
-                      onClick={() => setShowPublishPanel(true)}
-                    >
-                      <FaRocket size={14} />
-                      Publish
-                      {deploymentStatus === 'deploying' && (
-                        <span className="ml-2 inline-block w-2 h-2 rounded-full bg-amber-400"></span>
-                      )}
-                      {deploymentStatus === 'ready' && (
-                        <span className="ml-2 inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
-                      )}
-                    </button>
-                    {false && showPublishPanel && (
-                      <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-5">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Publish Project</h3>
-
-                        {/* Deployment Status Display */}
-                        {deploymentStatus === 'deploying' && (
-                          <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200 ">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                              <p className="text-sm font-medium text-blue-700 ">Deployment in progress...</p>
-                            </div>
-                            <p className="text-xs text-blue-600 ">Building and deploying your project. This may take a few minutes.</p>
-                          </div>
-                        )}
-
-                        {deploymentStatus === 'ready' && publishedUrl && (
-                          <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200 ">
-                            <p className="text-sm font-medium text-green-700 mb-2">Currently published at:</p>
-                            <a
-                              href={publishedUrl ?? undefined}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-green-600 font-mono hover:underline break-all"
-                            >
-                              {publishedUrl}
-                            </a>
-                          </div>
-                        )}
-
-                        {deploymentStatus === 'error' && (
-                          <div className="mb-4 p-4 bg-red-50 rounded-lg border border-red-200 ">
-                            <p className="text-sm font-medium text-red-700 mb-2">Deployment failed</p>
-                            <p className="text-xs text-red-600 ">There was an error during deployment. Please try again.</p>
-                          </div>
-                        )}
-
-                        <div className="space-y-4">
-                          {!githubConnected || !vercelConnected ? (
-                            <div className="p-4 bg-amber-50 rounded-lg border border-amber-200 ">
-                              <p className="text-sm font-medium text-gray-900 mb-3">To publish, connect the following services:</p>
-                              <div className="space-y-2">
-                                {!githubConnected && (
-                                  <div className="flex items-center gap-2 text-amber-700 ">
-                                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
-                                    <span className="text-sm">GitHub repository not connected</span>
-                                  </div>
-                                )}
-                                {!vercelConnected && (
-                                  <div className="flex items-center gap-2 text-amber-700 ">
-                                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
-                                    <span className="text-sm">Vercel project not connected</span>
-                                  </div>
-                                )}
-                              </div>
-                              <p className="mt-3 text-sm text-gray-600 ">
-                                Go to
-                                <button
-                                  onClick={() => {
-                                    setShowPublishPanel(false);
-                                    setShowGlobalSettings(true);
-                                  }}
-                                  className="text-indigo-600 hover:text-indigo-500 underline font-medium mx-1"
-                                >
-                                  Settings → Service Integrations
-                                </button>
-                                to connect.
-                              </p>
-                            </div>
-                          ) : null}
-
+                    {showMoreMenu && (
+                      <div className={`absolute right-0 top-full mt-1 w-44 rounded-lg border shadow-lg z-50 py-1 ${isDarkTheme ? 'bg-[#1b2531] border-[rgba(53,64,81,0.92)]' : 'bg-white border-gray-200'}`}>
+                        <button
+                          onClick={() => { setShowGlobalSettings(true); setShowMoreMenu(false); }}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${isDarkTheme ? 'text-gray-300 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100'}`}
+                        >
+                          <Settings size={14} />
+                          Settings
+                        </button>
+                        {showPreview && previewUrl && (
                           <button
-                            disabled={publishLoading || deploymentStatus === 'deploying' || !githubConnected || !vercelConnected}
-                            onClick={async () => {
-                              console.log('🚀 Publish started');
-
-                              setPublishLoading(true);
-                              try {
-                                // Push to GitHub
-                                console.log('🚀 Pushing to GitHub...');
-                                const pushRes = await fetch(`${API_BASE}/api/projects/${projectId}/github/push`, { method: 'POST' });
-                                if (!pushRes.ok) {
-                                  const errorText = await pushRes.text();
-                                  console.error('🚀 GitHub push failed:', errorText);
-                                  throw new Error(errorText);
-                                }
-
-                                // Deploy to Vercel
-                                console.log('🚀 Deploying to Vercel...');
-                                const deployUrl = `${API_BASE}/api/projects/${projectId}/vercel/deploy`;
-
-                                const vercelRes = await fetch(deployUrl, {
-                                  method: 'POST'
-                                });
-                                if (!vercelRes.ok) {
-                                  const responseText = await vercelRes.text();
-                                  console.error('🚀 Vercel deploy failed:', responseText);
-                                }
-                                if (vercelRes.ok) {
-                                  const data = await vercelRes.json();
-                                  console.log('🚀 Deployment started, polling for status...');
-
-                                  // Set deploying status BEFORE ending publishLoading to prevent gap
-                                  setDeploymentStatus('deploying');
-
-                                  if (data.deployment_id) {
-                                    startDeploymentPolling(data.deployment_id);
-                                  }
-
-                                  // Only set URL if deployment is already ready
-                                  if (data.status === 'READY' && data.deployment_url) {
-                                    const url = data.deployment_url.startsWith('http') ? data.deployment_url : `https://${data.deployment_url}`;
-                                    setPublishedUrl(url);
-                                    setDeploymentStatus('ready');
-                                  }
-                                } else {
-                                  const errorText = await vercelRes.text();
-                                  console.error('🚀 Vercel deploy failed:', vercelRes.status, errorText);
-                                  // if Vercel not connected, just close
-                                  setDeploymentStatus('idle');
-                                  setPublishLoading(false); // Stop loading even on Vercel deployment failure
-                                }
-                                // Keep panel open to show deployment progress
-                              } catch (e) {
-                                console.error('🚀 Publish failed:', e);
-                                alert('Publish failed. Check Settings and tokens.');
-                                setDeploymentStatus('idle');
-                                setPublishLoading(false); // Stop loading on error
-                                // Close panel after error
-                                setTimeout(() => {
-                                  setShowPublishPanel(false);
-                                }, 1000);
-                              } finally {
-                                loadDeployStatus();
-                              }
-                            }}
-                            className={`w-full px-4 py-3 rounded-lg font-medium text-white transition-colors ${
-                              publishLoading || deploymentStatus === 'deploying' || !githubConnected || !vercelConnected
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-indigo-600 hover:bg-indigo-700 '
-                            }`}
+                            onClick={() => { setShowPublishPanel(true); setShowMoreMenu(false); }}
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${isDarkTheme ? 'text-gray-300 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100'}`}
                           >
-                            {publishLoading
-                              ? 'Publishing...'
-                              : deploymentStatus === 'deploying'
-                              ? 'Deploying...'
-                              : !githubConnected || !vercelConnected
-                              ? 'Connect Services First'
-                              : deploymentStatus === 'ready' && publishedUrl ? 'Update' : 'Publish'
-                            }
+                            <Upload size={14} />
+                            Publish
+                            {deploymentStatus === 'deploying' && (
+                              <span className="ml-auto inline-block w-2 h-2 rounded-full bg-amber-400" />
+                            )}
+                            {deploymentStatus === 'ready' && (
+                              <span className="ml-auto inline-block w-2 h-2 rounded-full bg-emerald-400" />
+                            )}
                           </button>
-                        </div>
+                        )}
+                        {showPreview && previewUrl && (
+                          <button
+                            onClick={() => { window.open(previewUrl, '_blank'); setShowMoreMenu(false); }}
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${isDarkTheme ? 'text-gray-300 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100'}`}
+                          >
+                            <ExternalLink size={14} />
+                            Open in New Tab
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            const previewContainer = document.querySelector('[data-preview-container]');
+                            if (previewContainer) {
+                              previewContainer.requestFullscreen?.();
+                            } else {
+                              document.documentElement.requestFullscreen?.();
+                            }
+                            setShowMoreMenu(false);
+                          }}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${isDarkTheme ? 'text-gray-300 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100'}`}
+                        >
+                          <Maximize size={14} />
+                          Fullscreen
+                        </button>
                       </div>
                     )}
                   </div>
-                  )}
                 </div>
               </div>
 
@@ -2959,8 +2963,49 @@ const persistProjectPreferences = useCallback(
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
+                    className="relative h-full"
                     style={{ height: '100%' }}
                   >
+                {previewDiagnostic && (!previewUrl || previewDiagnostic.severity !== 'info') && (
+                  <div className="pointer-events-none absolute left-4 right-4 top-4 z-20">
+                    <div
+                      className={`pointer-events-auto rounded-xl border px-4 py-3 shadow-lg backdrop-blur ${
+                        previewDiagnostic.severity === 'error'
+                          ? 'border-amber-200 bg-amber-50/95'
+                          : previewDiagnostic.severity === 'warning'
+                          ? 'border-yellow-200 bg-yellow-50/95'
+                          : 'border-emerald-200 bg-emerald-50/95'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-900">Preview status</p>
+                            {previewDiagnostic.category && (
+                              <span className="rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-600">
+                                {previewDiagnostic.category.replace(/-/g, ' ')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-sm text-gray-800">{previewDiagnostic.message}</p>
+                          {previewDiagnostic.detail && (
+                            <p className="mt-1 text-xs text-gray-600">{previewDiagnostic.detail}</p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDiagnostic(null)}
+                          className="text-gray-400 transition-colors hover:text-gray-600"
+                          aria-label="Dismiss preview status"
+                        >
+                          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {previewUrl ? (
                   <div className="relative w-full h-full bg-gray-100 flex items-center justify-center">
                     <div
@@ -3228,6 +3273,22 @@ const persistProjectPreferences = useCallback(
                             <p className="text-gray-600 max-w-lg mx-auto">
                               Start your development server to see live changes
                             </p>
+                            {previewDiagnostic && (
+                              <div className="mx-auto mt-4 max-w-lg rounded-xl border border-gray-200 bg-white/85 px-4 py-3 text-left shadow-sm backdrop-blur">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-semibold text-gray-900">Latest preview diagnostic</p>
+                                  {previewDiagnostic.category && (
+                                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-600">
+                                      {previewDiagnostic.category.replace(/-/g, ' ')}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="mt-1 text-sm text-gray-700">{previewDiagnostic.message}</p>
+                                {previewDiagnostic.detail && (
+                                  <p className="mt-1 text-xs text-gray-500">{previewDiagnostic.detail}</p>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                       </MotionDiv>
@@ -3415,6 +3476,20 @@ const persistProjectPreferences = useCallback(
                 </AnimatePresence>
               </div>
             </div>
+
+            {/* Console panel at bottom of preview — takes real layout space */}
+            <div className={`flex-shrink-0 ${isConsoleOpen ? '' : 'hidden'}`}>
+              <ConsolePanel
+                projectId={projectId}
+                isOpen={isConsoleOpen}
+                onClose={() => setIsConsoleOpen(false)}
+                onPortKilled={(killedId) => {
+                  if (killedId === projectId) {
+                    setPreviewUrl(null);
+                  }
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -3427,8 +3502,8 @@ const persistProjectPreferences = useCallback(
           <div className="relative w-full max-w-lg bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/60 ">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white bg-black border border-black/10 ">
-                  <FaRocket size={14} />
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white bg-[#7c3aed] border border-[#7c3aed]/20 ">
+                  <FaPlay size={12} />
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-gray-900 ">Publish Project</h3>
@@ -3545,7 +3620,7 @@ const persistProjectPreferences = useCallback(
                 className={`w-full px-4 py-3 rounded-xl font-medium text-white transition ${
                   publishLoading || deploymentStatus === 'deploying' || !githubConnected || !vercelConnected
                     ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-black hover:bg-gray-900'
+                    : 'bg-[#7c3aed] hover:bg-[#6d28d9]'
                 }`}
               >
                 {publishLoading ? 'Publishing…' : deploymentStatus === 'deploying' ? 'Deploying…' : (!githubConnected || !vercelConnected) ? 'Connect Services First' : (deploymentStatus === 'ready' && publishedUrl ? 'Update' : 'Publish')}
@@ -3554,6 +3629,8 @@ const persistProjectPreferences = useCallback(
           </div>
         </div>
       )}
+
+
 
       {/* Project Settings Modal */}
       <ProjectSettings

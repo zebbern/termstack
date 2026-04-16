@@ -80,23 +80,6 @@ export default function ChatInput({
   const supportsImageUpload = preferredCli !== 'cursor' && preferredCli !== 'qwen' && preferredCli !== 'glm';
   const isDarkTheme = theme === 'dark';
 
-  // Log CLI compatibility details
-  console.log('🔧 CLI Compatibility Check:', {
-    preferredCli,
-    supportsImageUpload,
-    projectId: projectId ? 'valid' : 'missing',
-    uploadButtonAvailable: supportsImageUpload && !!projectId
-  });
-
-  // Inform the user about the current state
-  if (supportsImageUpload && projectId) {
-    console.log('✅ Image upload is ready! Click the upload button or drag in a file.');
-  } else if (!supportsImageUpload) {
-    console.log('❌ The current CLI does not support image uploads. Please switch to Claude CLI.');
-  } else {
-    console.log('❌ Please select a project.');
-  }
-
   const modelOptionsForCli = useMemo(
     () => modelOptions.filter(option => option.cli === preferredCli),
     [modelOptions, preferredCli]
@@ -167,24 +150,11 @@ export default function ChatInput({
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('📸 File input change event triggered:', {
-      hasFiles: !!e.target.files,
-      fileCount: e.target.files?.length || 0,
-      files: Array.from(e.target.files || []).map(f => ({
-        name: f.name,
-        size: f.size,
-        type: f.type,
-        lastModified: f.lastModified
-      }))
-    });
-
     const files = e.target.files;
     if (!files) {
-      console.log('📸 No files selected');
       return;
     }
 
-    console.log('📸 Calling handleFiles with files');
     await handleFiles(files);
   };
 
@@ -201,22 +171,14 @@ export default function ChatInput({
   // Handle files (for both drag drop and file input)
   const handleFiles = useCallback(async (files: FileList) => {
     if (!projectId) {
-      console.error('❌ No project ID available for image upload');
       alert('No project selected. Please choose a project first.');
       return;
     }
 
     if (!supportsImageUpload) {
-      console.error('❌ Current CLI does not support image upload:', preferredCli);
       alert(`Only Claude CLI supports image uploads.\nCurrent CLI: ${preferredCli}\nSwitch to Claude CLI.`);
       return;
     }
-
-    console.log('📸 Starting image upload process:', {
-      projectId,
-      cli: preferredCli,
-      fileCount: files.length
-    });
 
     setIsUploading(true);
 
@@ -224,13 +186,9 @@ export default function ChatInput({
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
-        // Check if file is an image
         if (!file.type.startsWith('image/')) {
-          console.warn(`⚠️ Skipping non-image file: ${file.name}, type: ${file.type}`);
           continue;
         }
-
-        console.log(`📸 Uploading image ${i + 1}/${files.length}:`, file.name);
 
         const formData = new FormData();
         formData.append('file', file);
@@ -242,12 +200,10 @@ export default function ChatInput({
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`❌ Upload failed for ${file.name}:`, response.status, errorText);
           throw new Error(`Failed to upload ${file.name}: ${response.status} ${errorText}`);
         }
 
         const result = await response.json();
-        console.log('✅ Image upload successful:', result);
         const imageUrl = URL.createObjectURL(file);
 
         const newImage: UploadedImage = {
@@ -259,24 +215,9 @@ export default function ChatInput({
           publicUrl: typeof result.public_url === 'string' ? result.public_url : undefined
         };
 
-        console.log('📸 Created UploadedImage object:', newImage);
-        setUploadedImages(prev => {
-          const updatedImages = [...prev, newImage];
-          console.log('📸 Updated uploadedImages state:', {
-            totalCount: updatedImages.length,
-            images: updatedImages.map(img => ({
-              id: img.id,
-              filename: img.filename,
-              hasPath: !!img.path,
-              hasAssetUrl: !!img.assetUrl,
-              hasPublicUrl: !!img.publicUrl
-            }))
-          });
-          return updatedImages;
-        });
+        setUploadedImages(prev => [...prev, newImage]);
       }
-    } catch (error) {
-      console.error('❌ Image upload failed:', error);
+    } catch {
       alert('Image upload failed. Please try again.');
     } finally {
       setIsUploading(false);
@@ -341,11 +282,8 @@ export default function ChatInput({
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('📸 Drag enter event triggered:', { projectId, supportsImageUpload });
     if (projectId && supportsImageUpload) {
       setIsDragOver(true);
-    } else {
-      console.log('📸 Drag enter ignored: missing projectId or unsupported CLI');
     }
   };
 
@@ -372,29 +310,13 @@ export default function ChatInput({
     e.stopPropagation();
     setIsDragOver(false);
 
-    console.log('📸 Drop event triggered:', {
-      hasFiles: !!e.dataTransfer.files,
-      fileCount: e.dataTransfer.files?.length || 0,
-      projectId,
-      supportsImageUpload,
-      files: Array.from(e.dataTransfer.files || []).map(f => ({
-        name: f.name,
-        size: f.size,
-        type: f.type
-      }))
-    });
-
     if (!projectId || !supportsImageUpload) {
-      console.log('📸 Drop event blocked: missing projectId or unsupported CLI');
       return;
     }
 
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      console.log('📸 Calling handleFiles with dropped files');
       handleFiles(files);
-    } else {
-      console.log('📸 No files in drop event');
     }
   };
 
@@ -483,60 +405,54 @@ export default function ChatInput({
           </div>
         )}
 
-        <div className="flex flex-wrap items-start gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-col text-[11px] text-gray-500 ">
-              <span>Assistant</span>
-              <select
-                value={preferredCli}
-                onChange={(e) => {
-                  onCliChange?.(e.target.value);
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <select
+              value={preferredCli}
+              onChange={(e) => {
+                onCliChange?.(e.target.value);
+                requestAnimationFrame(() => textareaRef.current?.focus());
+              }}
+              disabled={cliChangeDisabled || !onCliChange}
+              className={`min-w-0 flex-shrink rounded-md border bg-white text-gray-700 text-xs py-1.5 px-2 focus:outline-none focus:ring-2 disabled:opacity-60 ${
+                isDarkTheme
+                  ? 'border-[rgba(53,64,81,0.92)] focus:ring-[rgba(74,89,112,0.35)]'
+                  : 'border-gray-300 focus:ring-gray-300'
+              }`}
+            >
+              {cliOptions.length === 0 && <option value={preferredCli}>{preferredCli}</option>}
+              {cliOptions.map(option => (
+                <option key={option.id} value={option.id} disabled={!option.available}>
+                  {option.name}{!option.available ? ' (Unavailable)' : ''}
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedModelValue}
+              onChange={(e) => {
+                const option = modelOptionsForCli.find(opt => opt.id === e.target.value);
+                if (option) {
+                  onModelChange?.(option);
                   requestAnimationFrame(() => textareaRef.current?.focus());
-                }}
-                disabled={cliChangeDisabled || !onCliChange}
-                className={`mt-1 w-32 rounded-md border bg-white text-gray-700 text-xs py-1 px-2 focus:outline-none focus:ring-2 disabled:opacity-60 ${
-                  isDarkTheme
-                    ? 'border-[rgba(53,64,81,0.92)] focus:ring-[rgba(74,89,112,0.35)]'
-                    : 'border-gray-300 focus:ring-gray-300'
-                }`}
-              >
-                {cliOptions.length === 0 && <option value={preferredCli}>{preferredCli}</option>}
-                {cliOptions.map(option => (
-                  <option key={option.id} value={option.id} disabled={!option.available}>
-                    {option.name}{!option.available ? ' (Unavailable)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col text-[11px] text-gray-500 ">
-              <span>Model</span>
-              <select
-                value={selectedModelValue}
-                onChange={(e) => {
-                  const option = modelOptionsForCli.find(opt => opt.id === e.target.value);
-                  if (option) {
-                    onModelChange?.(option);
-                    requestAnimationFrame(() => textareaRef.current?.focus());
-                  }
-                }}
-                disabled={modelChangeDisabled || !onModelChange || modelOptionsForCli.length === 0}
-                className={`mt-1 w-40 rounded-md border bg-white text-gray-700 text-xs py-1 px-2 focus:outline-none focus:ring-2 disabled:opacity-60 ${
-                  isDarkTheme
-                    ? 'border-[rgba(53,64,81,0.92)] focus:ring-[rgba(74,89,112,0.35)]'
-                    : 'border-gray-300 focus:ring-gray-300'
-                }`}
-              >
-                {modelOptionsForCli.length === 0 && <option value="">No models available</option>}
-                {modelOptionsForCli.length > 0 && selectedModelValue === '' && (
-                  <option value="" disabled>Select model</option>
-                )}
-                {modelOptionsForCli.map(option => (
-                  <option key={option.id} value={option.id} disabled={!option.available}>
-                    {option.name}{!option.available ? ' (Unavailable)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+                }
+              }}
+              disabled={modelChangeDisabled || !onModelChange || modelOptionsForCli.length === 0}
+              className={`min-w-0 flex-shrink rounded-md border bg-white text-gray-700 text-xs py-1.5 px-2 focus:outline-none focus:ring-2 disabled:opacity-60 ${
+                isDarkTheme
+                  ? 'border-[rgba(53,64,81,0.92)] focus:ring-[rgba(74,89,112,0.35)]'
+                  : 'border-gray-300 focus:ring-gray-300'
+              }`}
+            >
+              {modelOptionsForCli.length === 0 && <option value="">No models available</option>}
+              {modelOptionsForCli.length > 0 && selectedModelValue === '' && (
+                <option value="" disabled>Select model</option>
+              )}
+              {modelOptionsForCli.map(option => (
+                <option key={option.id} value={option.id} disabled={!option.available}>
+                  {option.name}{!option.available ? ' (Unavailable)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

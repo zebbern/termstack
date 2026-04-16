@@ -47,7 +47,7 @@ export function useUserRequests({ projectId }: UseUserRequestsOptions) {
     // Execute only on client side
     if (typeof document !== 'undefined') {
       setIsTabVisible(!document.hidden);
-      
+
       const handleVisibilityChange = () => {
         setIsTabVisible(!document.hidden);
       };
@@ -69,9 +69,6 @@ export function useUserRequests({ projectId }: UseUserRequestsOptions) {
         cache: 'no-store',
       });
       if (response.status === 404) {
-        if (previousActiveState.current) {
-          console.log('🔄 [UserRequests] Active requests endpoint unavailable; assuming no active requests.');
-        }
         if (activeRequestIdsRef.current.size > 0) {
           activeRequestIdsRef.current.clear();
         }
@@ -91,7 +88,6 @@ export function useUserRequests({ projectId }: UseUserRequestsOptions) {
 
         // Log only when active state changes
         if (data.hasActiveRequests !== previousActiveState.current) {
-          console.log(`🔄 [UserRequests] Active requests: ${data.hasActiveRequests} (count: ${data.activeCount})`);
           previousActiveState.current = data.hasActiveRequests;
         }
       } else {
