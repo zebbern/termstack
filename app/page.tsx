@@ -592,15 +592,13 @@ export default function HomePage() {
                           className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-center text-sm text-[var(--app-text)] outline-none"
                         >
                           <option value="">Design</option>
-                          {DESIGN_CATEGORIES.map((category) => (
-                            <optgroup key={category} label={category}>
-                              {(designsByCategory[category] ?? []).map((tmpl) => (
-                                <option key={tmpl.id} value={tmpl.id}>
-                                  {tmpl.name}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
+                          {DESIGN_CATEGORIES.flatMap((category) =>
+                            (designsByCategory[category] ?? []).map((tmpl) => (
+                              <option key={tmpl.id} value={tmpl.id}>
+                                {tmpl.name}
+                              </option>
+                            )),
+                          )}
                         </select>
                       </div>
 
