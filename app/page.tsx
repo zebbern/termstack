@@ -25,17 +25,8 @@ import { fetchCliStatusSnapshot } from '@/hooks/useCLI';
 import DeleteProjectModal from '@/components/modals/DeleteProjectModal';
 import { ProjectSettings } from '@/components/settings/ProjectSettings';
 import type { Project } from '@/types/client/project';
-import { DESIGN_CATALOG, DESIGN_CATEGORIES, getDesignsByCategory } from '@/data/design-catalog';
-
-function getContrastColor(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? '#000000' : '#FFFFFF';
-}
-
-const designsByCategory = getDesignsByCategory();
+import { DESIGN_CATALOG, DESIGN_CATEGORIES } from '@/data/design-catalog';
+import DesignPicker from '@/components/DesignPicker';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
 
@@ -594,24 +585,12 @@ export default function HomePage() {
                           ))}
                         </select>
 
-                        <select
+                        <DesignPicker
                           value={selectedDesign}
-                          onChange={(event) => setSelectedDesign(event.target.value)}
-                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-center text-sm text-[var(--app-text)] outline-none"
-                        >
-                          <option value="">Design</option>
-                          {DESIGN_CATEGORIES.flatMap((category) =>
-                            (designsByCategory[category] ?? []).map((tmpl) => (
-                              <option
-                                key={tmpl.id}
-                                value={tmpl.id}
-                                style={{ backgroundColor: tmpl.color, color: getContrastColor(tmpl.color) }}
-                              >
-                                {tmpl.name}
-                              </option>
-                            )),
-                          )}
-                        </select>
+                          onChange={setSelectedDesign}
+                          designs={DESIGN_CATALOG}
+                          categories={DESIGN_CATEGORIES}
+                        />
                       </div>
 
                       <button
