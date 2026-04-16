@@ -564,7 +564,7 @@ export default function HomePage() {
                               ),
                             );
                           }}
-                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-sm text-[var(--app-text)] outline-none"
+                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-center text-sm text-[var(--app-text)] outline-none"
                         >
                           {cliOptions.map((option) => (
                             <option key={option.id} value={option.id} disabled={!option.available}>
@@ -576,7 +576,7 @@ export default function HomePage() {
                         <select
                           value={selectedModel}
                           onChange={(event) => setSelectedModel(event.target.value)}
-                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-sm text-[var(--app-text)] outline-none"
+                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-center text-sm text-[var(--app-text)] outline-none"
                           disabled={isLoadingConfig}
                         >
                           {modelOptions.map((option) => (
@@ -589,7 +589,7 @@ export default function HomePage() {
                         <select
                           value={selectedDesign}
                           onChange={(event) => setSelectedDesign(event.target.value)}
-                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-sm text-[var(--app-text)] outline-none"
+                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-center text-sm text-[var(--app-text)] outline-none"
                         >
                           <option value="">Design</option>
                           {DESIGN_CATEGORIES.map((category) => (
@@ -608,10 +608,9 @@ export default function HomePage() {
                         type="button"
                         onClick={() => void handleCreateProject()}
                         disabled={!composerPrompt.trim() || isSubmitting}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--app-text)] px-4 py-2.5 text-sm font-medium text-[#050608] transition hover:bg-white disabled:cursor-not-allowed disabled:bg-[rgba(255,255,255,0.18)] disabled:text-[var(--app-muted)]"
+                        className="inline-flex items-center justify-center rounded-lg bg-[var(--app-text)] p-2.5 text-sm font-medium text-[#050608] transition hover:bg-white disabled:cursor-not-allowed disabled:bg-[rgba(255,255,255,0.18)] disabled:text-[var(--app-muted)]"
                       >
                         {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
-                        Start build
                       </button>
                     </div>
                   </div>
