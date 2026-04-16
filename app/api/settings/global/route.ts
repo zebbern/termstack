@@ -10,6 +10,7 @@ function serialize(settings: Awaited<ReturnType<typeof loadGlobalSettings>>) {
     ...settings,
     defaultCli: settings.default_cli,
     cliSettings: settings.cli_settings,
+    mcpServers: settings.mcp_servers || [],
   };
 }
 
@@ -34,6 +35,11 @@ export async function PUT(request: NextRequest) {
     const cliSettings = normalizeCliSettings(cliSettingsRaw as Record<string, unknown> | undefined);
     if (cliSettings) {
       update.cli_settings = cliSettings;
+    }
+
+    const mcp_servers = candidate.mcp_servers ?? candidate.mcpServers;
+    if (Array.isArray(mcp_servers)) {
+      update.mcp_servers = mcp_servers;
     }
 
     const nextSettings = await updateGlobalSettings(update);

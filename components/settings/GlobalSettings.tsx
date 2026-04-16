@@ -9,13 +9,14 @@ import { useGlobalSettings } from '@/contexts/GlobalSettingsContext';
 import { getModelDefinitionsForCli, normalizeModelId } from '@/lib/constants/cliModels';
 import { fetchCliStatusSnapshot, createCliStatusFallback } from '@/hooks/useCLI';
 import type { CLIStatus } from '@/types/cli';
+import { MCPSettings } from '@/components/settings/MCPSettings';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
 
 interface GlobalSettingsProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'general' | 'ai-agents' | 'services' | 'about';
+  initialTab?: 'general' | 'ai-agents' | 'services' | 'mcp' | 'about';
 }
 
 interface CLIOption {
@@ -106,7 +107,7 @@ interface ServiceToken {
 }
 
 export default function GlobalSettings({ isOpen, onClose, initialTab = 'general' }: GlobalSettingsProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'ai-agents' | 'services' | 'about'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'general' | 'ai-agents' | 'services' | 'mcp' | 'about'>(initialTab);
   const [serviceModalOpen, setServiceModalOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<'github' | 'supabase' | 'vercel' | null>(null);
   const [tokens, setTokens] = useState<{ [key: string]: ServiceToken | null }>({
@@ -389,6 +390,7 @@ export default function GlobalSettings({ isOpen, onClose, initialTab = 'general'
                 { id: 'general' as const, label: 'General' },
                 { id: 'ai-agents' as const, label: 'AI Agents' },
                 { id: 'services' as const, label: 'Services' },
+                { id: 'mcp' as const, label: 'MCP Servers' },
                 { id: 'about' as const, label: 'About' }
               ].map(tab => (
                 <button
@@ -729,6 +731,10 @@ export default function GlobalSettings({ isOpen, onClose, initialTab = 'general'
                   </div>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'mcp' && (
+              <MCPSettings />
             )}
 
             {activeTab === 'about' && (

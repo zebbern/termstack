@@ -7,9 +7,51 @@ const SETTINGS_FILE = path.join(DATA_DIR, 'global-settings.json');
 
 export type CLISettings = Record<string, Record<string, unknown>>;
 
+export interface MCPServerConfig {
+  name: string;
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+  enabled: boolean;
+  isPreset?: boolean;
+}
+
+export const MCP_PRESETS: MCPServerConfig[] = [
+  {
+    name: 'filesystem',
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-filesystem@latest', '{projectPath}'],
+    enabled: false,
+    isPreset: true,
+  },
+  {
+    name: 'playwright',
+    command: 'npx',
+    args: ['-y', '@playwright/mcp@latest'],
+    enabled: false,
+    isPreset: true,
+  },
+  {
+    name: 'sequential-thinking',
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-sequential-thinking@latest'],
+    enabled: false,
+    isPreset: true,
+  },
+  {
+    name: 'github',
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-github@latest'],
+    env: { GITHUB_TOKEN: '' },
+    enabled: false,
+    isPreset: true,
+  },
+];
+
 export interface GlobalSettings {
   default_cli: string;
   cli_settings: CLISettings;
+  mcp_servers: MCPServerConfig[];
 }
 
 const DEFAULT_SETTINGS: GlobalSettings = {
@@ -31,6 +73,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
       model: getDefaultModelForCli('glm'),
     },
   },
+  mcp_servers: [],
 };
 
 async function ensureDataDir(): Promise<void> {
@@ -60,6 +103,7 @@ async function readSettingsFile(): Promise<GlobalSettings | null> {
         ...DEFAULT_SETTINGS.cli_settings,
         ...cliSettings,
       },
+      mcp_servers: Array.isArray(parsed.mcp_servers) ? parsed.mcp_servers : [],
     };
   } catch (error) {
     return null;
@@ -80,6 +124,7 @@ export async function loadGlobalSettings(): Promise<GlobalSettings> {
         ...DEFAULT_SETTINGS.cli_settings,
         ...(existing.cli_settings ?? {}),
       },
+      mcp_servers: existing.mcp_servers || [],
     };
     return merged;
   }
@@ -116,6 +161,7 @@ export async function updateGlobalSettings(partial: Partial<GlobalSettings>): Pr
   const next: GlobalSettings = {
     default_cli: partial.default_cli ?? current.default_cli,
     cli_settings: { ...current.cli_settings },
+    mcp_servers: partial.mcp_servers !== undefined ? partial.mcp_servers : current.mcp_servers,
   };
 
   if (cliSettings) {

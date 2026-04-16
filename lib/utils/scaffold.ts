@@ -1,5 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { loadGlobalSettings } from '../services/settings';
+import type { MCPServerConfig } from '../services/settings';
 
 async function writeFileIfMissing(filePath: string, contents: string) {
   try {
@@ -89,6 +91,15 @@ export async function scaffoldBasicNextApp(
   projectId: string
 ) {
   await fs.mkdir(projectPath, { recursive: true });
+
+  let enabledMcpServers: MCPServerConfig[] = [];
+  try {
+    const globalSettings = await loadGlobalSettings();
+    enabledMcpServers = (globalSettings.mcp_servers || []).filter(s => s.enabled);
+  } catch {
+    // Global settings unavailable — skip MCP injection
+  }
+
   const packageVersions = await loadHostScaffoldPackageVersions();
 
   const packageJson = {
@@ -729,38 +740,52 @@ triggers:
   );
 
   // Claude Code project settings — hard enforcement + PreToolUse hook
+  const claudeSettings: Record<string, unknown> = {
+    "$schema": "https://json.schemastore.org/claude-code-settings.json",
+    "permissions": {
+      "deny": [
+        "Bash(npm *)",
+        "Bash(yarn *)",
+        "Bash(pnpm *)",
+        "Bash(bun *)",
+        "Bash(npx *)",
+        "Bash(next dev*)",
+        "Bash(next build*)",
+        "Bash(next start*)",
+        "Bash(rm -rf .next*)",
+        "Bash(rm -rf node_modules*)"
+      ]
+    },
+    "hooks": {
+      "PreToolUse": [
+        {
+          "matcher": "Bash",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "node .claude/hooks/validate-bash.mjs"
+            }
+          ]
+        }
+      ]
+    }
+  };
+  if (enabledMcpServers.length > 0) {
+    const claudeMcpServers: Record<string, any> = {};
+    for (const server of enabledMcpServers) {
+      const args = server.args.map(a => a.replace('{projectPath}', projectPath));
+      claudeMcpServers[server.name] = {
+        type: 'stdio',
+        command: server.command,
+        args,
+        ...(server.env && Object.keys(server.env).length > 0 && { env: server.env }),
+      };
+    }
+    claudeSettings.mcpServers = claudeMcpServers;
+  }
   await writeFileIfMissing(
     path.join(projectPath, '.claude/settings.json'),
-    JSON.stringify({
-      "$schema": "https://json.schemastore.org/claude-code-settings.json",
-      "permissions": {
-        "deny": [
-          "Bash(npm *)",
-          "Bash(yarn *)",
-          "Bash(pnpm *)",
-          "Bash(bun *)",
-          "Bash(npx *)",
-          "Bash(next dev*)",
-          "Bash(next build*)",
-          "Bash(next start*)",
-          "Bash(rm -rf .next*)",
-          "Bash(rm -rf node_modules*)"
-        ]
-      },
-      "hooks": {
-        "PreToolUse": [
-          {
-            "matcher": "Bash",
-            "hooks": [
-              {
-                "type": "command",
-                "command": "node .claude/hooks/validate-bash.mjs"
-              }
-            ]
-          }
-        ]
-      }
-    }, null, 2) + '\n'
+    JSON.stringify(claudeSettings, null, 2) + '\n'
   );
 
   // Claude Code PreToolUse hook — validates Bash commands at runtime
@@ -850,19 +875,53 @@ triggers:
   );
 
   // Codex CLI configuration — feature flags + reasoning settings
+  const codexTomlLines = [
+    '# Codex CLI configuration for TermStack projects',
+    '',
+    '[features]',
+    'child_agents_md = true   # Enable AGENTS.md subagent delegation',
+    '',
+    '[reasoning]',
+    'plan_mode_reasoning_effort = "high"   # Maximize planning quality',
+    '',
+  ];
+  if (enabledMcpServers.length > 0) {
+    codexTomlLines.push('[mcp_servers]');
+    for (const server of enabledMcpServers) {
+      const args = server.args.map(a => a.replace('{projectPath}', projectPath));
+      const argsStr = args.map(a => `"${a}"`).join(', ');
+      const entry = `${server.name} = { command = "${server.command}", args = [${argsStr}]`;
+      if (server.env && Object.keys(server.env).length > 0) {
+        const envPairs = Object.entries(server.env).map(([k, v]) => `${k} = "${v}"`).join(', ');
+        codexTomlLines.push(entry + `, env = { ${envPairs} } }`);
+      } else {
+        codexTomlLines.push(entry + ' }');
+      }
+    }
+    codexTomlLines.push('');
+  }
   await writeFileIfMissing(
     path.join(projectPath, '.codex/config.toml'),
-    [
-      '# Codex CLI configuration for TermStack projects',
-      '',
-      '[features]',
-      'child_agents_md = true   # Enable AGENTS.md subagent delegation',
-      '',
-      '[reasoning]',
-      'plan_mode_reasoning_effort = "high"   # Maximize planning quality',
-      '',
-    ].join('\n')
+    codexTomlLines.join('\n')
   );
+
+  // Cursor MCP server configuration
+  if (enabledMcpServers.length > 0) {
+    const cursorServers: Record<string, any> = {};
+    for (const server of enabledMcpServers) {
+      const args = server.args.map(a => a.replace('{projectPath}', projectPath));
+      cursorServers[server.name] = {
+        type: 'stdio',
+        command: server.command,
+        args,
+        ...(server.env && Object.keys(server.env).length > 0 && { env: server.env }),
+      };
+    }
+    await writeFileIfMissing(
+      path.join(projectPath, '.cursor', 'mcp.json'),
+      JSON.stringify({ servers: cursorServers }, null, 2) + '\n'
+    );
+  }
 
   // Claude Code modular rules — auto-read at session start
   await writeFileIfMissing(
