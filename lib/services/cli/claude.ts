@@ -949,7 +949,7 @@ All file operations are scoped to this directory. You are already in the correct
 - Use Next.js 15 App Router
 - Use TypeScript
 - Prefer the existing styling stack in the project. For fresh projects, default to plain CSS, CSS Modules, or inline styles unless the user explicitly asks for Tailwind CSS.
-- If you add Tailwind CSS, use the compatible v3 stack for this platform: tailwindcss@3.4.17 with postcss@8.4.49 and autoprefixer@10.4.20, plus the classic \`@tailwind base;\`, \`@tailwind components;\`, and \`@tailwind utilities;\` directives. Do not use Tailwind v4-only syntax or \`@tailwindcss/postcss\`.
+- If you add Tailwind CSS, use Tailwind v4 for this platform: tailwindcss@^4.2.2 with @tailwindcss/postcss@^4.2.2. Use \`@import "tailwindcss"\` in globals.css and configure postcss.config.js with the \`@tailwindcss/postcss\` plugin. Use \`@theme\` in CSS for customization instead of tailwind.config files.
 - Write clean, production-ready code
 - Follow best practices
 - The platform automatically installs dependencies and manages the preview dev server. Never run package managers or dev-server commands yourself. If you need a dependency, edit package.json with the required version and let the platform handle installation after your file changes.
@@ -1477,7 +1477,7 @@ export async function initializeNextJsProject(
 Use the existing Next.js 15 application in the current working directory and implement the following requirements directly in that project:
 ${initialPrompt}
 
-Use App Router and TypeScript. Prefer the existing CSS setup unless the user explicitly requests Tailwind CSS. If you do add Tailwind, pin tailwindcss@3.4.17, postcss@8.4.49, and autoprefixer@10.4.20 with the classic Tailwind v3 PostCSS configuration.
+Use App Router and TypeScript. Prefer the existing CSS setup unless the user explicitly requests Tailwind CSS. If you do add Tailwind, use v4: tailwindcss@^4.2.2 with @tailwindcss/postcss@^4.2.2 and @import "tailwindcss" in globals.css.
 Implement the requested features by editing project files in place.
 Do not run install, build, dev, test, or cleanup commands yourself, and never delete \`.next\`, \`node_modules\`, lockfiles, or other build artifacts while the managed preview is active.
 Do not stop after analysis or planning, and do not just describe the solution.

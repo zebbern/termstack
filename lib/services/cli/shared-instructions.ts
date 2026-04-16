@@ -13,7 +13,7 @@
 export const PLATFORM_RULES = `- This is an implementation task. Make the required file changes in the current working directory before claiming completion.
 - Use Next.js 15 App Router and TypeScript.
 - Prefer the existing styling stack in the project. For fresh projects, default to plain CSS, CSS Modules, or inline styles unless the user explicitly asks for Tailwind CSS.
-- If you add Tailwind CSS, use the compatible v3 stack: tailwindcss@3.4.17 with postcss@8.4.49 and autoprefixer@10.4.20. Use classic @tailwind base/components/utilities directives. Do not use Tailwind v4-only syntax or @tailwindcss/postcss.
+- If you add Tailwind CSS, use Tailwind v4: tailwindcss@^4.2.2 with @tailwindcss/postcss@^4.2.2. Use @import "tailwindcss" in globals.css. Configure postcss.config.js with @tailwindcss/postcss plugin. Use @theme in CSS for customization instead of tailwind.config files.
 - Write clean, production-ready code. Follow best practices.
 - The platform automatically installs dependencies and manages the preview dev server. Never run package managers or dev-server commands yourself. If you need a dependency, edit package.json with the required version and let the platform handle installation after your file changes.
 - Never run build, test, clean, or framework lifecycle commands yourself (for example: npm/yarn/pnpm/bun commands, next build/dev/start, or project-wide validation shell commands). The platform owns installs, builds, and preview orchestration.

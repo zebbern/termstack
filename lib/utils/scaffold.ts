@@ -23,7 +23,6 @@ interface ScaffoldPackageVersions {
   eslint: string;
   eslintConfigNext: string;
   postcss: string;
-  autoprefixer: string;
 }
 
 const DEFAULT_SCAFFOLD_PACKAGE_VERSIONS: ScaffoldPackageVersions = {
@@ -36,7 +35,6 @@ const DEFAULT_SCAFFOLD_PACKAGE_VERSIONS: ScaffoldPackageVersions = {
   eslint: '^9.17.0',
   eslintConfigNext: '^15.5.6',
   postcss: '^8.4.49',
-  autoprefixer: '^10.4.20',
 };
 
 async function loadHostScaffoldPackageVersions(): Promise<ScaffoldPackageVersions> {
@@ -80,9 +78,6 @@ async function loadHostScaffoldPackageVersions(): Promise<ScaffoldPackageVersion
       postcss:
         hostPackageJson.devDependencies?.postcss ??
         DEFAULT_SCAFFOLD_PACKAGE_VERSIONS.postcss,
-      autoprefixer:
-        hostPackageJson.devDependencies?.autoprefixer ??
-        DEFAULT_SCAFFOLD_PACKAGE_VERSIONS.autoprefixer,
     };
   } catch {
     return DEFAULT_SCAFFOLD_PACKAGE_VERSIONS;
@@ -118,7 +113,6 @@ export async function scaffoldBasicNextApp(
       eslint: packageVersions.eslint,
       'eslint-config-next': packageVersions.eslintConfigNext,
       postcss: packageVersions.postcss,
-      autoprefixer: packageVersions.autoprefixer,
     },
   };
 
@@ -452,7 +446,7 @@ function resolvePort(preferredPort) {
 
 - Next.js 15 App Router + TypeScript (strict)
 - Prefer the existing styling stack. For fresh projects, default to plain CSS or CSS Modules.
-- If adding Tailwind CSS: use v3 stack (tailwindcss@3.4.17 + postcss@8.4.49 + autoprefixer@10.4.20). Use classic @tailwind base/components/utilities directives, NOT @import "tailwindcss" (v4 syntax).
+- If adding Tailwind CSS: use Tailwind v4 (tailwindcss@^4.2.2 + @tailwindcss/postcss@^4.2.2). Use @import "tailwindcss" in globals.css and @tailwindcss/postcss in postcss.config.js. Use @theme for customization instead of tailwind.config.*.
 
 ## Verification
 
@@ -479,7 +473,7 @@ function resolvePort(preferredPort) {
 
 - Next.js 15 App Router + TypeScript (strict)
 - Prefer the existing styling stack. For fresh projects, default to plain CSS or CSS Modules.
-- If adding Tailwind CSS: use v3 stack (tailwindcss@3.4.17 + postcss@8.4.49 + autoprefixer@10.4.20). Use classic @tailwind base/components/utilities directives, NOT @import "tailwindcss" (v4 syntax).
+- If adding Tailwind CSS: use Tailwind v4 (tailwindcss@^4.2.2 + @tailwindcss/postcss@^4.2.2). Use @import "tailwindcss" in globals.css and @tailwindcss/postcss in postcss.config.js. Use @theme for customization instead of tailwind.config.*.
 
 ## Verification
 
@@ -512,7 +506,7 @@ alwaysApply: true
 
 - Next.js 15 App Router + TypeScript (strict)
 - Prefer the existing styling stack. For fresh projects, default to plain CSS or CSS Modules.
-- If adding Tailwind CSS: use v3 stack (tailwindcss@3.4.17 + postcss@8.4.49 + autoprefixer@10.4.20). Use classic @tailwind base/components/utilities directives, NOT @import "tailwindcss" (v4 syntax).
+- If adding Tailwind CSS: use Tailwind v4 (tailwindcss@^4.2.2 + @tailwindcss/postcss@^4.2.2). Use @import "tailwindcss" in globals.css and @tailwindcss/postcss in postcss.config.js. Use @theme for customization instead of tailwind.config.*.
 
 ## Verification
 
@@ -549,10 +543,9 @@ The platform manages package installation automatically.
 ## Version Pinning Rules
 
 - Use caret (^) prefix for most packages (e.g., "lodash": "^4.17.21").
-- For Tailwind CSS specifically, use exact versions:
-  - "tailwindcss": "3.4.17"
-  - "postcss": "8.4.49"
-  - "autoprefixer": "10.4.20"
+- For Tailwind CSS specifically, use these versions:
+  - "tailwindcss": "^4.2.2"
+  - "@tailwindcss/postcss": "^4.2.2"
 
 ## Example — Adding axios
 
@@ -675,7 +668,7 @@ Read back changed files before claiming done. Never guess preview URLs — read 
   await writeFileIfMissing(
     path.join(projectPath, '.claude/rules/tailwind.md'),
     `---
-description: Tailwind CSS v3 rules for TermStack projects
+description: Tailwind CSS v4 rules for TermStack projects
 paths:
   - "**/*.css"
   - "**/*.tsx"
@@ -685,24 +678,41 @@ paths:
 # Tailwind CSS Rules
 
 ## Version
-Use Tailwind CSS v3 stack ONLY:
-- tailwindcss@3.4.17
-- postcss@8.4.49
-- autoprefixer@10.4.20
+Use Tailwind CSS v4:
+- tailwindcss@^4.2.2
+- @tailwindcss/postcss@^4.2.2
+- postcss@^8.4.49
 
-## Syntax
-Use classic v3 directives in globals.css:
-
-${'```'}css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+## Setup
+Add to postcss.config.js:
+${'```'}js
+module.exports = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
 ${'```'}
 
-Do NOT use:
-- @import "tailwindcss" (v4 syntax)
-- @tailwindcss/postcss (v4 plugin)
-- @theme or @layer theme (v4 features)
+Add to app/globals.css (at the top):
+${'```'}css
+@import "tailwindcss";
+${'```'}
+
+## Customization
+Use @theme in CSS instead of tailwind.config.*:
+${'```'}css
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #3b82f6;
+  --font-display: "Inter", sans-serif;
+}
+${'```'}
+
+## Do NOT use (v3 legacy)
+- @tailwind base / @tailwind components / @tailwind utilities
+- tailwind.config.ts / tailwind.config.js for new projects
+- autoprefixer (bundled in v4)
 `
   );
 
