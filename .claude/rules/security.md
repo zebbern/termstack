@@ -1,10 +1,9 @@
 ---
 paths:
-  - "src/api/**"
-  - "src/auth/**"
-  - "src/middleware/**"
-  - "**/routes/**"
-  - "**/controllers/**"
+  - "pages/api/**"
+  - "lib/services/**"
+  - "lib/middleware/**"
+  - "electron/**"
 ---
 
 # Security

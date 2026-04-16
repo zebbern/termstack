@@ -5,8 +5,10 @@
     "allow": [
       "Bash(npm run lint *)",
       "Bash(npm run test *)",
-      "Bash(npm run typecheck)",
       "Bash(npm run build)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx next *)",
+      "Bash(npx prisma *)",
       "Bash(git status)",
       "Bash(git diff *)",
       "Bash(git log *)",
@@ -47,21 +49,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.sh",
+            "command": "node .claude/hooks/protect-files.mjs",
             "timeout": 5000,
             "statusMessage": "Checking file protections..."
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/warn-large-files.sh",
+            "command": "node .claude/hooks/warn-large-files.mjs",
             "timeout": 5000,
             "statusMessage": "Checking for build artifacts..."
-          },
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/scan-secrets.sh",
-            "timeout": 5000,
-            "statusMessage": "Scanning for secrets..."
           }
         ]
       },
@@ -70,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-dangerous-commands.sh",
+            "command": "node .claude/hooks/block-dangerous-commands.mjs",
             "timeout": 5000,
             "statusMessage": "Checking command safety..."
           }
@@ -83,22 +79,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/format-on-save.sh",
+            "command": "node .claude/hooks/format-on-save.mjs",
             "timeout": 15000,
             "statusMessage": "Formatting..."
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh",
-            "timeout": 5000,
-            "statusMessage": "Loading project context..."
           }
         ]
       }
@@ -109,7 +92,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "which osascript >/dev/null 2>&1 && osascript -e 'display notification \"Claude Code needs your attention\" with title \"Claude Code\"' || which notify-send >/dev/null 2>&1 && notify-send 'Claude Code' 'Claude Code needs your attention' || true"
+            "command": "node -e \"const {execSync}=require('child_process');try{if(process.platform==='darwin')execSync('osascript -e \\'display notification \\\"Claude Code needs attention\\\" with title \\\"Claude Code\\\"\\'');else if(process.platform==='linux')execSync('notify-send \\\"Claude Code\\\" \\\"Claude Code needs attention\\\"');else execSync('powershell -Command \\\"[System.Reflection.Assembly]::LoadWithPartialName(\\'System.Windows.Forms\\');[System.Windows.Forms.MessageBox]::Show(\\'Claude Code needs your attention\\',\\'Claude Code\\')\\\"')}catch{}\""
           }
         ]
       }

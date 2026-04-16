@@ -1,10 +1,9 @@
 ---
 paths:
-  - "src/api/**"
-  - "src/services/**"
-  - "**/controllers/**"
-  - "**/routes/**"
-  - "**/handlers/**"
+  - "pages/api/**"
+  - "lib/services/**"
+  - "lib/utils/**"
+  - "electron/**"
 ---
 
 # Error Handling

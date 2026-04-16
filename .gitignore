@@ -88,3 +88,7 @@ homepage-*.png
 *-detail.png
 *-hover.png
 assistant-dropdown-open.png
+
+# Claude Code local overrides
+CLAUDE.local.md
+.claude/settings.local.json
