@@ -516,12 +516,58 @@ alwaysApply: true
 `
   );
 
+  // Cursor: Tailwind v4 scoped rule — only triggers for CSS/component files
+  await writeFileIfMissing(
+    path.join(projectPath, '.cursor/rules/tailwind.mdc'),
+    `---
+description: Tailwind CSS v4 conventions for TermStack projects
+globs: ["**/*.css", "**/*.tsx", "**/*.jsx"]
+alwaysApply: false
+---
+
+# Tailwind CSS v4 — Cursor Rules
+
+## Version
+This project uses Tailwind CSS v4. Do NOT use v3 APIs.
+
+## Setup
+- postcss.config.js uses @tailwindcss/postcss (not tailwindcss or autoprefixer)
+- globals.css uses @import "tailwindcss" (not @tailwind directives)
+- Customization via @theme in CSS (not tailwind.config.*)
+
+## Allowed
+- @import "tailwindcss"
+- @theme { --color-*: ...; --font-*: ...; }
+- All standard Tailwind utility classes
+- CSS-first configuration with @theme
+
+## Forbidden (v3 legacy)
+- @tailwind base / @tailwind components / @tailwind utilities
+- tailwind.config.ts or tailwind.config.js
+- autoprefixer in postcss.config.js (bundled in v4)
+- theme() function in CSS (use CSS variables instead)
+
+## Versions
+- tailwindcss: ^4.2.2
+- @tailwindcss/postcss: ^4.2.2
+- postcss: ^8.4.49
+`
+  );
+
   // Claude Code skills — active capabilities, not just passive rules
   await writeFileIfMissing(
     path.join(projectPath, '.claude/skills/add-dependency/SKILL.md'),
     `---
 name: add-dependency
 description: How to properly add npm dependencies in a TermStack project. NEVER run npm/yarn/pnpm directly.
+triggers:
+  - "add dependency"
+  - "install package"
+  - "npm install"
+  - "yarn add"
+  - "pnpm add"
+  - "need a library"
+  - "add package"
 ---
 
 # Adding Dependencies in TermStack
@@ -570,6 +616,14 @@ Then save. The platform handles the rest.
     `---
 name: check-preview
 description: How to verify the TermStack preview is running and showing your changes correctly.
+triggers:
+  - "preview broken"
+  - "preview not working"
+  - "check preview"
+  - "page is blank"
+  - "white screen"
+  - "nothing showing"
+  - "verify changes"
 ---
 
 # Checking Preview Status in TermStack
@@ -617,7 +671,64 @@ If the user reports the preview is broken after your changes:
 `
   );
 
-  // Claude Code project settings — hard enforcement of platform constraints
+  // Skill: fix build errors — auto-triggered on common error keywords
+  await writeFileIfMissing(
+    path.join(projectPath, '.claude/skills/fix-build-errors/SKILL.md'),
+    `---
+name: fix-build-errors
+description: Diagnose and fix Next.js / TypeScript build errors in TermStack projects.
+triggers:
+  - "build error"
+  - "compile error"
+  - "type error"
+  - "module not found"
+  - "cannot find module"
+  - "syntax error"
+  - "unexpected token"
+  - "is not assignable to"
+  - "has no exported member"
+  - "failed to compile"
+---
+
+# Fixing Build Errors in TermStack
+
+## Triage Steps
+
+1. Read the FULL error message — file path, line number, and error code.
+2. Open the file at the indicated line.
+3. Identify the root cause (do NOT just suppress the error with any-casts).
+
+## Common Errors & Fixes
+
+### Module not found
+- Check the import path — is it relative or absolute?
+- If importing a package, verify it is in package.json with the correct name.
+- If importing a local file, verify the file exists at that path.
+
+### Type errors
+- Read the full type mismatch — understand what is expected vs. what is provided.
+- Fix the source, not the symptom. Do not use ${'`as any`'} or ${'`@ts-ignore`'}.
+- If a library types are wrong, add a .d.ts declaration file.
+
+### JSX errors
+- Check for unclosed tags, missing return statements, or fragments.
+- Verify component names are PascalCase.
+- Check that all used components are imported.
+
+### Layout errors
+- app/layout.tsx is critical — if it breaks, every page breaks.
+- Must export default a function that accepts { children }.
+- Must include <html> and <body> tags.
+
+## After Fixing
+
+1. Re-read the file to confirm the fix is saved.
+2. Check if the same error pattern exists in other files.
+3. Verify imports still resolve after your changes.
+`
+  );
+
+  // Claude Code project settings — hard enforcement + PreToolUse hook
   await writeFileIfMissing(
     path.join(projectPath, '.claude/settings.json'),
     JSON.stringify({
@@ -635,8 +746,122 @@ If the user reports the preview is broken after your changes:
           "Bash(rm -rf .next*)",
           "Bash(rm -rf node_modules*)"
         ]
+      },
+      "hooks": {
+        "PreToolUse": [
+          {
+            "matcher": "Bash",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node .claude/hooks/validate-bash.mjs"
+              }
+            ]
+          }
+        ]
       }
     }, null, 2) + '\n'
+  );
+
+  // Claude Code PreToolUse hook — validates Bash commands at runtime
+  await writeFileIfMissing(
+    path.join(projectPath, '.claude/hooks/validate-bash.mjs'),
+    [
+      '#!/usr/bin/env node',
+      '// PreToolUse hook: validates Bash tool_input before execution.',
+      '// Exit 0 = allow, Exit 2 = block (stderr shown to user).',
+      '',
+      'const BLOCKED_BINS = [',
+      '  "npm", "yarn", "pnpm", "bun", "npx",',
+      '  "next", "node_modules/.bin/next"',
+      '];',
+      '',
+      'const PORT_RE = /(?:--port|--p|-p|PORT=|localhost:)(\\d+)/g;',
+      'const VALID_PORT_MIN = 3100;',
+      'const VALID_PORT_MAX = 3999;',
+      '',
+      'const DELETE_PATTERNS = [',
+      '  /rm\\s+-rf\\s+\\.next/,',
+      '  /rm\\s+-rf\\s+node_modules/,',
+      '  /rm\\s+-rf\\s+package-lock/,',
+      '  /rimraf\\s+\\.next/,',
+      '  /rimraf\\s+node_modules/',
+      '];',
+      '',
+      'async function main() {',
+      '  let raw = "";',
+      '  for await (const chunk of process.stdin) raw += chunk;',
+      '  const input = JSON.parse(raw);',
+      '  const cmd = (input.tool_input?.command ?? "").trim();',
+      '  if (!cmd) process.exit(0);',
+      '',
+      '  // Check blocked binaries',
+      '  const first = cmd.split(/[\\s;&|]+/)[0].replace(/^.*\\//, "");',
+      '  if (BLOCKED_BINS.includes(first)) {',
+      '    process.stderr.write(',
+      '      `[TermStack] Blocked: "${first}" is not allowed. ` +',
+      '      "Edit package.json instead of running package managers.\\n"',
+      '    );',
+      '    process.exit(2);',
+      '  }',
+      '',
+      '  // Check port ranges',
+      '  let m;',
+      '  while ((m = PORT_RE.exec(cmd)) !== null) {',
+      '    const port = parseInt(m[1], 10);',
+      '    if (port < VALID_PORT_MIN || port > VALID_PORT_MAX) {',
+      '      process.stderr.write(',
+      '        `[TermStack] Blocked: port ${port} outside allowed range ` +',
+      '        `${VALID_PORT_MIN}-${VALID_PORT_MAX}.\\n`',
+      '      );',
+      '      process.exit(2);',
+      '    }',
+      '  }',
+      '',
+      '  // Check destructive patterns',
+      '  for (const pat of DELETE_PATTERNS) {',
+      '    if (pat.test(cmd)) {',
+      '      process.stderr.write(',
+      '        "[TermStack] Blocked: deleting build artifacts or node_modules " +',
+      '        "is not allowed.\\n"',
+      '      );',
+      '      process.exit(2);',
+      '    }',
+      '  }',
+      '',
+      '  // Check chained commands for blocked binaries',
+      '  const parts = cmd.split(/[;&|]+/).map(s => s.trim());',
+      '  for (const part of parts) {',
+      '    const bin = part.split(/\\s+/)[0].replace(/^.*\\//, "");',
+      '    if (BLOCKED_BINS.includes(bin)) {',
+      '      process.stderr.write(',
+      '        `[TermStack] Blocked: "${bin}" in chained command is not allowed.\\n`',
+      '      );',
+      '      process.exit(2);',
+      '    }',
+      '  }',
+      '',
+      '  process.exit(0);',
+      '}',
+      '',
+      'main().catch(() => process.exit(0));',
+      '',
+    ].join('\n')
+  );
+
+  // Codex CLI configuration — feature flags + reasoning settings
+  await writeFileIfMissing(
+    path.join(projectPath, '.codex/config.toml'),
+    [
+      '# Codex CLI configuration for TermStack projects',
+      '',
+      '[features]',
+      'child_agents_md = true   # Enable AGENTS.md subagent delegation',
+      '',
+      '[reasoning]',
+      'plan_mode_reasoning_effort = "high"   # Maximize planning quality',
+      '',
+    ].join('\n')
   );
 
   // Claude Code modular rules — auto-read at session start
